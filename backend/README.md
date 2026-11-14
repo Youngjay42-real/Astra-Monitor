@@ -1,6 +1,13 @@
 # ASTRA-MED AI — Backend
 
-FastAPI service for NASA Space Apps 2026: health indicators, risk evaluation, offline protocols, inventory, and NASA DONKI/OSDR/NTRS evidence.
+FastAPI service for NASA Space Apps 2026: astronaut health monitoring that **starts from how NASA already monitors crews**, maps **advantages and bottlenecks**, then **improves with autonomous predict-and-act** — proven in a **mission simulation** (Earth-lag baseline vs ASTRA-MED).
+
+## How we achieve it
+
+1. **Reuse NASA-class indicators** — vitals, exercise, symptoms, DONKI space weather (same families as flown monitoring).
+2. **Name the gaps** — Earth-dependent telemedicine lag; open HRR Medical-701 / Med10 decision support.
+3. **Improve with ASTRA-MED** — explainable risk scores, rising-risk prediction, offline protocols + inventory.
+4. **Simulate** — `POST /api/simulation/start` → `run` compares autonomous intervention vs waiting on Earth.
 
 ## Stack
 
@@ -35,4 +42,6 @@ With Neon, set `DATABASE_URL` and run the same suite (omit empty override).
 
 ## API
 
-See `FRONTEND_TEAMMATE_PROMPT.md` in the repo root for the contract the React app consumes.
+Public JSON matches the React Zod schemas in `frontend/src/api/schemas.ts` via `app/services/fe_format.py` (string ids, ISO-Z timestamps, flat evidence/predictions arrays, protocol aliases like `crew-check-in`).
+
+Extra endpoints for the product story (not required by the current UI): `GET /api/approach`, `POST /api/simulation/*`.

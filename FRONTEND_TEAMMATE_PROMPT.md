@@ -75,6 +75,18 @@ Base URL: `http://localhost:8000`
 | GET | `/api/inventory` | Medical kit |
 | POST | `/api/inventory` | Upsert inventory item |
 | GET | `/api/predictions` | Rising-risk flags |
+| GET | `/api/approach` | NASA advantages/bottlenecks + ASTRA-MED improvements |
+| POST | `/api/simulation/start` | Start mission sim `{ "days": 7, "scenario": "sep_storm" }` |
+| POST | `/api/simulation/{id}/step` | Advance one mission day (dual branch) |
+| POST | `/api/simulation/{id}/run` | Run full sim → comparison report |
+| GET | `/api/simulation/{id}` | Current sim state |
+
+### Product story (show this in the UI)
+
+1. **NASA already monitors** (ultrasound, ARED, vitals, dosimeters, telemedicine, kits) — show `/api/approach` advantages.  
+2. **Bottlenecks** — Earth lag / open Medical-701 decision support — show bottlenecks.  
+3. **ASTRA-MED improves** — same indicator classes + predict + offline act.  
+4. **Simulation** — run `/api/simulation/...` and visualize **baseline (Earth-lag)** vs **ASTRA-MED (autonomous)** day-by-day, then the `compare` headline.
 
 ### Example shapes (match these fields)
 
