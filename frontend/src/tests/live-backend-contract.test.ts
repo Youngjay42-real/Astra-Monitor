@@ -11,7 +11,8 @@ import {
   statusSchema,
 } from '../api/schemas'
 
-const base = process.env.ASTRA_API_BASE ?? 'http://127.0.0.1:8765'
+const base = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.ASTRA_API_BASE
+  ?? 'http://127.0.0.1:8765'
 
 async function getJson(path: string, init?: RequestInit) {
   const response = await fetch(`${base}${path}`, init)
