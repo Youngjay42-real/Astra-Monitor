@@ -1,0 +1,15 @@
+# Frontend Blueprint. The separate API Blueprint is backend/render.yaml.
+services:
+  - type: web
+    name: astra-med-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci --include=dev && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SKIP_INSTALL_DEPS
+        value: "true"
+      - key: VITE_USE_MOCK
+        value: "true"

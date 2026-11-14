@@ -16,6 +16,10 @@ Open `http://localhost:5173/` for the animated Earth homepage or `http://localho
 
 The frontend defaults to explicitly labeled simulated data. Set `VITE_USE_MOCK=false` and `VITE_API_BASE_URL` to the FastAPI service URL to use the backend. The frontend does not connect directly to the database. See the [frontend README](frontend/README.md) and [backend README](backend/README.md).
 
+## Render configuration
+
+The root [`render.yaml`](render.yaml) configures the frontend as a Render static site. Create a Blueprint from that file to deploy it in demo mode. See the [frontend deployment instructions](frontend/README.md#deploy-the-frontend-on-render) to connect a live API later. The existing [backend Blueprint](backend/render.yaml) configures the API separately.
+
 ## Contributor
 
 Frontend contribution: [10KASH / @10kash](https://github.com/10kash).

@@ -33,3 +33,11 @@ The build includes both `index.html` and `dashboard.html`. For browser tests, in
 The globe supports drag, keyboard rotation, zoom, reset, pause/resume, reduced-motion preferences, and an image fallback when WebGL is unavailable. Mission scores and guidance in demo mode are illustrative. See [imagery credits](public/textures/CREDITS.md) and the [design review](docs/design/homepage-review.md).
 
 Frontend contributor: [@10kash](https://github.com/10kash).
+
+## Deploy the frontend on Render
+
+Create a Render Blueprint from this repository's `main` branch using the root [`render.yaml`](../render.yaml). It defines the `astra-med-frontend` static site, uses Node.js 22, builds from `frontend/` with `npm ci --include=dev && npm run build`, and publishes `frontend/dist/`.
+
+Both `/` and `/dashboard.html` are built as real HTML pages. No catch-all SPA rewrite is required. The existing API Blueprint remains separate at [`backend/render.yaml`](../backend/render.yaml).
+
+The frontend Blueprint explicitly enables demo mode (`VITE_USE_MOCK=true`), so the site works without backend credentials. To connect the API later, set `VITE_USE_MOCK=false` and `VITE_API_BASE_URL` to your backend's public HTTPS URL in the frontend service's Render environment, allow the frontend origin in the backend's CORS configuration, then rebuild and deploy the frontend. These Vite settings are compiled into the static assets.
