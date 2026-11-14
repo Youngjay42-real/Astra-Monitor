@@ -1,0 +1,5 @@
+:root {
+ font-family:'DM Sans',sans-serif;color:#eef3f5;background:#07121b;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;
+ --void:#07121b;--surface:#0d1c27;--surface-hover:#122734;--line:#263a47;--text:#eef3f5;--muted:#98acba;--mint:#b5e8d0;--amber:#e8b974;--critical:#f49891;
+ --heading:'Space Grotesk',sans-serif;--mono:'IBM Plex Mono',monospace;--radius:4px;--ease:cubic-bezier(.2,.8,.2,1);
+}
