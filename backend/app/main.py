@@ -41,14 +41,13 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
-    origins = settings.cors_origin_list
-    # Always permit browser calls from the static frontend (Render/localhost).
-    # allow_credentials cannot be combined with "*".
-    allow_all = (not origins) or ("*" in origins)
+    # Always open CORS for this Space Apps demo so any Render/static origin can call the API.
+    # (allow_credentials cannot be true with "*".)
+    _ = settings.cors_origin_list  # kept for future lockdown via env if needed
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"] if allow_all else origins,
-        allow_credentials=False if allow_all else True,
+        allow_origins=["*"],
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
