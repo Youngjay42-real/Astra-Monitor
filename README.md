@@ -1,27 +1,65 @@
-# Astra Monitor / ASTRA-MED
+# ASTRA-MED
 
-Space-health exploration software with an interactive 3D Earth homepage and an astronaut-facing crew-health dashboard. The existing FastAPI backend is in `backend/`; the React application is in `frontend/`.
+**Astronaut health monitoring and exploration decision support.**
 
-## Run the frontend
+ASTRA-MED brings daily health observations, mission health indicators, space-weather information, and structured guidance into one crew-focused workspace. It helps users record changes, review areas that need attention, and prepare information for mission medical support.
 
-Use Node.js 20.19+ or 22.12+ (see `frontend/package.json`).
+![ASTRA-MED homepage with an interactive 3D Earth](frontend/docs/design/homepage-desktop.png)
 
-```bash
-cd frontend
-npm ci
-npm run dev
-```
+*Homepage preview with demonstration data.*
 
-Open `http://localhost:5173/` for the animated Earth homepage or `http://localhost:5173/dashboard.html` for the workspace.
+## Overview
 
-The frontend defaults to explicitly labeled simulated data. Set `VITE_USE_MOCK=false` and `VITE_API_BASE_URL` to the FastAPI service URL to use the backend. The frontend does not connect directly to the database. See the [frontend README](frontend/README.md) and [backend README](backend/README.md).
+Space missions place people in environments where health observations, available resources, and communication delays matter. ASTRA-MED organizes these concerns around a practical workflow: observe, record, review, and prepare.
 
-## Render configuration
+The experience begins with an interactive view of Earth and opens into a dashboard for check-ins, health-domain monitoring, space weather, protocol review, medical inventory, and research evidence.
 
-The root [`render.yaml`](render.yaml) configures the frontend as a Render static site connected to your existing backend. Set `VITE_API_BASE_URL` to the backend's public HTTPS origin in the frontend service's Render environment. Mock mode is disabled, and the build requires this URL. See the [frontend deployment instructions](frontend/README.md#deploy-the-frontend-on-render). The existing [backend Blueprint](backend/render.yaml) configures the API separately.
+## Features
 
-## Contributor
+| Capability | What it provides |
+| --- | --- |
+| **Interactive Earth** | A rotating 3D globe with NASA surface imagery, cloud layers, atmospheric lighting, and drag, zoom, pause, and reset controls. |
+| **Daily health check-ins** | Records heart rate, blood pressure, blood oxygen, sleep, mood, exercise, and symptoms, with a history of previous entries. |
+| **Health-domain monitoring** | Reviews radiation, bone, cardiovascular, immune, and behavioral indicators through scores, trends, and suggested actions. |
+| **Space-weather awareness** | Displays solar energetic particle events, timestamps, instruments, and source links. |
+| **Exploration decision support** | Organizes reported symptoms into ranked guidance and reviewable protocol steps. |
+| **Medical inventory** | Tracks kit quantities and flags low stock, expired items, and supply issues relevant to a protocol. |
+| **Research evidence** | Connects users to NASA space-biology data, technical reports, and human-research resources. |
 
-Frontend contribution: [10KASH / @10kash](https://github.com/10kash).
+## How it works
 
-This is an independent exploration prototype using simulated crew data, not a clinical or operational mission medical system. NASA imagery credits are included in `frontend/public/textures/CREDITS.md`.
+1. **Review the mission overview.** Explore the health domains and identify areas that need attention.
+2. **Record a daily check-in.** Add observations and readings to the mission log.
+3. **Review patterns and context.** Compare health indicators with previous entries and available space-weather information.
+4. **Prepare a response.** Review guidance, work through protocol checklists, and check the required supplies.
+5. **Consult the evidence.** Follow research and source links for further context.
+
+## The experience
+
+ASTRA-MED combines a spacious Earth-focused homepage with a structured mission workspace. Responsive layouts support desktop and mobile use, while keyboard-accessible globe controls, reduced-motion support, and an image fallback make the opening experience usable across different devices.
+
+The application supports both a standalone demonstration mode and a backend-connected mode. The demonstration uses simulated crew records; the connected workspace reads and saves information through the application's API.
+
+## Technology
+
+| Layer | Technologies |
+| --- | --- |
+| Interface | React, TypeScript, Vite, and CSS |
+| Earth visualization | Three.js and NASA Blue Marble imagery |
+| API | Python and FastAPI |
+| Persistence | SQLAlchemy and PostgreSQL |
+| Verification | Vitest, Playwright, and backend API tests |
+
+## Project documentation
+
+- [Frontend guide](frontend/README.md) — local development, configuration, and frontend deployment.
+- [Backend guide](backend/README.md) — API setup, database configuration, and backend tests.
+- [Earth imagery credits](frontend/public/textures/CREDITS.md) — sources for the globe's surface, cloud, and night textures.
+
+## Contributors
+
+[@10kash](https://github.com/10kash) · [@Youngjay42-real](https://github.com/Youngjay42-real)
+
+## Project scope
+
+ASTRA-MED is an independent exploration research prototype intended for simulated crew scenarios. It is not a clinical or operational mission medical system and does not replace qualified medical care.
