@@ -81,6 +81,7 @@ class EvidenceItem(BaseModel):
     id: str
     title: str
     url: str
+    description: str | None = None
 
 
 class EvidenceOut(BaseModel):
@@ -90,7 +91,7 @@ class EvidenceOut(BaseModel):
 
 class FeEvidenceItem(BaseModel):
     id: str
-    source: Literal["OSDR", "NTRS", "HRR"]
+    source: Literal["OSDR", "NTRS", "HRR", "NLSP"]
     title: str
     description: str
     url: str

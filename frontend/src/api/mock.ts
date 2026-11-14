@@ -82,6 +82,7 @@ export async function mockRequest(path: string, method: string, body?: unknown):
   ] }
   if (path === '/api/radiation/events' && method === 'GET') return [ { sepID: '2026-09-05T15:45:00-SEP-001', eventTime: '2026-09-05T15:45:00Z', instruments: ['GOES-P: SEISS >100 MeV'], link: 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/' } ]
   if (path === '/api/evidence' && method === 'GET') return [
+    { id: 'nlsp-portal', source: 'NLSP', title: 'NASA Life Sciences Portal', description: 'Human research data from spaceflight and ground-analog studies (HRP / LSDA / Standard Measures).', url: 'https://www.nasa.gov/hrp/nlsp/' },
     { id: 'osdr', source: 'OSDR', title: 'Open Science Data Repository', description: 'Explore NASA space biology and life science datasets.', url: 'https://science.nasa.gov/biological-physical/data/' },
     { id: 'ntrs', source: 'NTRS', title: 'NASA Technical Reports Server', description: 'Browse NASA aerospace research and technical reports.', url: 'https://ntrs.nasa.gov/' },
     { id: 'hrr', source: 'HRR', title: 'Human Research Roadmap', description: 'Explore evidence, risks and gaps in human spaceflight.', url: 'https://humanresearchroadmap.nasa.gov/' },

@@ -20,7 +20,7 @@ from app.schemas import (
     SimulationStartRequest,
     SimulationState,
 )
-from app.services import fe_format, nasa, nasa_baseline, predictor, protocols, simulation
+from app.services import fe_format, nasa, nasa_baseline, nlsp, predictor, protocols, simulation
 from app.services.risk_engine import compute_status
 
 router = APIRouter(prefix="/api")
@@ -71,6 +71,12 @@ def radiation_events(db: Session = Depends(get_db)) -> list[RadiationEvent]:
 @router.get("/evidence", response_model=list[FeEvidenceItem])
 def evidence(db: Session = Depends(get_db)) -> list[FeEvidenceItem]:
     return fe_format.format_evidence(nasa.fetch_evidence(db))
+
+
+@router.get("/nlsp")
+def nlsp_catalog(db: Session = Depends(get_db)) -> dict:
+    """NASA Life Sciences Portal catalog: Standard Measures, open bedrest, ALSDA, access notes."""
+    return nlsp.get_nlsp_catalog(db)
 
 
 @router.post("/assess", response_model=FeAssessOut)

@@ -120,15 +120,20 @@ def format_events(events: list[RadiationEvent]) -> list[RadiationEvent]:
     ]
 
 
+_ALLOWED_EVIDENCE_SOURCES = frozenset({"OSDR", "NTRS", "HRR", "NLSP"})
+
+
 def format_evidence(bundle: EvidenceOut) -> list[FeEvidenceItem]:
     items: list[FeEvidenceItem] = []
     for item in bundle.items:
+        source = item.source if item.source in _ALLOWED_EVIDENCE_SOURCES else "OSDR"
+        description = item.description or f"{item.source} reference used to ground ASTRA-MED indicators."
         items.append(
             FeEvidenceItem(
                 id=item.id,
-                source=item.source if item.source in ("OSDR", "NTRS", "HRR") else "OSDR",
+                source=source,  # type: ignore[arg-type]
                 title=item.title,
-                description=f"{item.source} reference used to ground ASTRA-MED indicators.",
+                description=description,
                 url=item.url,
             )
         )
@@ -137,7 +142,8 @@ def format_evidence(bundle: EvidenceOut) -> list[FeEvidenceItem]:
             id=bundle.roadmap.id,
             source="HRR",
             title=bundle.roadmap.title,
-            description="NASA Human Research Roadmap open gap informing autonomous decision support.",
+            description=bundle.roadmap.description
+            or "NASA Human Research Roadmap open gap informing autonomous decision support.",
             url=bundle.roadmap.url,
         )
     )

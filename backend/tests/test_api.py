@@ -59,6 +59,19 @@ def test_evidence(client):
     assert len(data) >= 1
     assert {"id", "source", "title", "description", "url"} <= set(data[0].keys())
     assert any(item["source"] == "HRR" for item in data)
+    assert any(item["source"] == "NLSP" for item in data)
+    assert any("nlsp" in item["url"].lower() or "nasa.gov/hrp/nlsp" in item["url"] for item in data)
+
+
+def test_nlsp_catalog(client):
+    r = client.get("/api/nlsp")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["portal"]["url"] == "https://www.nasa.gov/hrp/nlsp/"
+    assert data["standard_measures"]["domains"]
+    assert "public" in data["access"]
+    assert "restricted" in data["access"]
+    assert data["access"]["request_url"]
 
 
 def test_assess_and_protocol(client):

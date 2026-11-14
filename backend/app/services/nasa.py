@@ -122,9 +122,13 @@ def sep_stats(events: list[RadiationEvent]) -> tuple[int, bool]:
 
 
 def fetch_evidence(db: Session) -> EvidenceOut:
-    cached = _cache_get(db, "evidence")
+    # Bump key when NLSP/catalog shape changes so stale caches do not hide new sources.
+    cache_key = "evidence_nlsp_v1"
+    cached = _cache_get(db, cache_key)
     if cached is not None:
         return EvidenceOut.model_validate(cached)
+
+    from app.services import nlsp as nlsp_service
 
     osdr_hits = FALLBACK_OSDR
     ntrs_hits = FALLBACK_NTRS
@@ -163,24 +167,49 @@ def fetch_evidence(db: Session) -> EvidenceOut:
         pass
 
     items: list[EvidenceItem] = []
+    seen_ids: set[str] = set()
+
+    for raw in nlsp_service.nlsp_evidence_items(db):
+        eid = str(raw["id"])
+        if eid in seen_ids:
+            continue
+        seen_ids.add(eid)
+        items.append(
+            EvidenceItem(
+                source=str(raw["source"]),
+                id=eid,
+                title=str(raw["title"]),
+                url=str(raw["url"]),
+                description=str(raw.get("description") or "") or None,
+            )
+        )
+
     for o in osdr_hits:
         acc = str(o.get("Accession") or "OSDR")
+        if acc in seen_ids:
+            continue
+        seen_ids.add(acc)
         items.append(
             EvidenceItem(
                 source="OSDR",
                 id=acc,
                 title=str(o.get("Study Title") or acc),
                 url=f"https://osdr.nasa.gov/bio/repo/data/studies/{acc}",
+                description="ALSDA / space-biology study metadata via NASA OSDR (NLSP life-sciences lineage).",
             )
         )
     for n in ntrs_hits:
         nid = str(n.get("id") or "")
+        if not nid or nid in seen_ids:
+            continue
+        seen_ids.add(nid)
         items.append(
             EvidenceItem(
                 source="NTRS",
                 id=nid,
                 title=str(n.get("title") or nid),
                 url=f"https://ntrs.nasa.gov/citations/{nid}",
+                description="NASA Technical Reports Server citation for radiation / crew health context.",
             )
         )
 
@@ -189,7 +218,8 @@ def fetch_evidence(db: Session) -> EvidenceOut:
         id="Medical-701",
         title="Increase inflight medical capabilities / computed decision support (Med10)",
         url="https://humanresearchroadmap.nasa.gov/Gaps/gap.aspx?i=716",
+        description="NASA Human Research Roadmap open gap informing autonomous decision support.",
     )
     out = EvidenceOut(items=items, roadmap=roadmap)
-    _cache_set(db, "evidence", out.model_dump())
+    _cache_set(db, cache_key, out.model_dump())
     return out

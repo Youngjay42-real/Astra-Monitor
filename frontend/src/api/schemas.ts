@@ -52,7 +52,7 @@ export const safeUrlSchema = z.string().max(2048).refine((value) => {
   catch { return false }
 }, 'Only HTTP(S) links without embedded credentials are supported.')
 export const eventsSchema = z.array(z.object({ sepID: z.string().max(200), eventTime: z.iso.datetime({ offset: true }), instruments: z.array(z.string().max(200)).max(20), link: safeUrlSchema })).max(100)
-export const evidenceSchema = z.array(z.object({ id: z.string().max(100), source: z.enum(['OSDR', 'NTRS', 'HRR']), title: z.string().max(300), description: z.string().max(1000), url: safeUrlSchema })).max(100)
+export const evidenceSchema = z.array(z.object({ id: z.string().max(100), source: z.enum(['OSDR', 'NTRS', 'HRR', 'NLSP']), title: z.string().max(300), description: z.string().max(1000), url: safeUrlSchema })).max(100)
 export const inventoryItemSchema = z.object({
   id: z.string().min(1).max(100), name: z.string().max(200), quantity: z.number().int().min(0).max(999),
   unit: z.string().max(50), low_threshold: z.number().int().min(0).max(999), expires_on: z.iso.date().nullable(),

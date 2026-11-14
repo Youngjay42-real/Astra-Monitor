@@ -23,6 +23,15 @@ NASA_ADVANTAGES = [
         status="existing",
     ),
     ApproachPillar(
+        title="NLSP / HRP Standard Measures",
+        detail=(
+            "NASA Life Sciences Portal catalogs flight and analog Standard Measures "
+            "(cardio, bone, immune, behavioral) plus LSDA/ALSDA study metadata — "
+            "public catalog vs restricted PHI via data request."
+        ),
+        status="existing",
+    ),
+    ApproachPillar(
         title="Radiation detectors & dosimeters",
         detail="Hardware measures exposure and informs protection decisions.",
         status="existing",
@@ -99,7 +108,7 @@ ASTRA_IMPROVEMENTS = [
     ),
     ApproachPillar(
         title="Evidence-linked thresholds",
-        detail="Ground recommendations in OSDR / NTRS / HRR Medical-701 citations.",
+        detail="Ground recommendations in NLSP Standard Measures, OSDR/ALSDA, NTRS, and HRR Medical-701.",
         status="improvement",
     ),
 ]
