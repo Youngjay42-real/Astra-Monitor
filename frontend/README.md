@@ -13,9 +13,10 @@ Requires Node.js `^20.19.0 || >=22.12.0`. Open `http://localhost:5173/` or `http
 
 ## Data configuration
 
-- `VITE_USE_MOCK=true` is the default. Simulated check-ins and inventory are retained in this browser's local storage.
-- `VITE_USE_MOCK=false` enables the FastAPI client without a silent demo fallback.
+- The app **always uses the FastAPI backend** by default (`VITE_USE_MOCK` defaults to `false`).
+- `VITE_USE_MOCK=true` is for automated tests only (Playwright/Vitest).
 - `VITE_API_BASE_URL` defaults to `http://localhost:8000`. Set it to your backend URL at build time when hosting the frontend.
+- On Render, set the backend’s `CORS_ORIGINS` to include the exact frontend origin.
 
 Only simulated crew data is intended for this prototype. Frontend environment variables are public build inputs; never put secrets in them. Keep local `.env` files out of Git.
 
