@@ -1,0 +1,17 @@
+# Blueprint reference for Render Web Service (API).
+# Create Neon DB separately and paste DATABASE_URL into Render env.
+services:
+  - type: web
+    name: astra-med-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.12.8"
