@@ -42,12 +42,13 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
     origins = settings.cors_origin_list
-    # Hackathon/default: open CORS so a separate Render static site can call the API.
-    allow_all = not origins or origins == ["*"]
+    # Always permit browser calls from the static frontend (Render/localhost).
+    # allow_credentials cannot be combined with "*".
+    allow_all = (not origins) or ("*" in origins)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"] if allow_all else origins,
-        allow_credentials=not allow_all,
+        allow_credentials=False if allow_all else True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
