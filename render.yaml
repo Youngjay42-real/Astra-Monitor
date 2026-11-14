@@ -1,12 +1,10 @@
-# Frontend Blueprint. The separate API Blueprint is backend/render.yaml.
+# Frontend static site. Points at the live FastAPI service.
 services:
   - type: web
     name: astra-med-frontend
     runtime: static
     rootDir: frontend
-    buildCommand: >-
-      : "${VITE_API_BASE_URL:?Set VITE_API_BASE_URL to your existing Render backend HTTPS URL}" &&
-      npm ci --include=dev && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     staticPublishPath: ./dist
     envVars:
       - key: NODE_VERSION
@@ -16,4 +14,4 @@ services:
       - key: VITE_USE_MOCK
         value: "false"
       - key: VITE_API_BASE_URL
-        sync: false
+        value: "https://astra-monitor.onrender.com"

@@ -52,7 +52,7 @@ describe('live API transport', () => {
   vi.stubGlobal('fetch',fetchMock)
   const {api}=await liveApi()
   expect((await api.status()).overall).toBe('caution')
-  expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:8000/api/status')
+  expect(String(fetchMock.mock.calls[0][0])).toBe('http://localhost:8000/api/status')
  })
  it('rejects malformed successful responses', async () => {
   vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('{"overall":"safe"}',{status:200})))

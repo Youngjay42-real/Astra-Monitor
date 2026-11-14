@@ -1,5 +1,4 @@
-# Blueprint reference for Render Web Service (API).
-# Create Neon DB separately and paste DATABASE_URL into Render env.
+# Render Web Service for the FastAPI API (and optional bundled frontend_dist).
 services:
   - type: web
     name: astra-med-api
@@ -12,6 +11,6 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: CORS_ORIGINS
-        sync: false
+        value: "*"
       - key: PYTHON_VERSION
         value: "3.12.8"

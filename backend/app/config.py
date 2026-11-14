@@ -8,7 +8,8 @@ class Settings(BaseSettings):
 
     app_name: str = "ASTRA-MED AI"
     database_url: str = ""
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    # "*" = allow any browser origin (needed when frontend is a separate Render URL).
+    cors_origins: str = "*"
     testing: bool = False
     nasa_cache_ttl_seconds: int = 900
     crew_name: str = "Sim Crew A"

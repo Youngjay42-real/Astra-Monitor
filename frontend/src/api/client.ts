@@ -19,7 +19,15 @@ import {
 
 /** Test-only override. Production/Render always uses the backend API (default false). */
 export const isMock = import.meta.env.VITE_USE_MOCK === 'true'
-const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '')
+// Empty string = same-origin (API + UI on one Render service). Local default is localhost.
+const configuredBase = import.meta.env.VITE_API_BASE_URL
+const baseUrl = (
+  configuredBase === undefined || configuredBase === ''
+    ? (import.meta.env.DEV ? 'http://localhost:8000' : '')
+    : configuredBase
+).replace(/\/+$/, '')
+
+export const apiBaseUrl = baseUrl || window.location.origin
 
 export class ApiError extends Error {
   status?: number
@@ -47,14 +55,15 @@ export async function request<T>(path: string, schema: z.ZodType<T>, options: Re
     data = await mockRequest(path, method, options.body)
     options.signal?.throwIfAborted()
   } else {
-    const url = new URL(baseUrl)
+    const absoluteBase = baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000')
+    const url = new URL(absoluteBase)
     if (!['http:', 'https:'].includes(url.protocol)) {
       throw new ApiError('The API URL must use HTTP or HTTPS.')
     }
     const timeout = AbortSignal.timeout(12000)
     const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout
     try {
-      const response = await fetch(`${baseUrl}${path}`, {
+      const response = await fetch(`${absoluteBase}${path}`, {
         method,
         signal,
         headers: {

@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowRight, RefreshCw, Sparkles } from 'lucide-react'
+import { apiBaseUrl } from '../api/client'
 import type { Status } from '../api/schemas'
 
 const labels = {
@@ -58,6 +59,7 @@ export function Hero({
               <div>
                 <strong>Mission link offline</strong>
                 <p>{error}</p>
+                <p className="connection-target">Trying: {apiBaseUrl}</p>
               </div>
               <div className="connection-actions">
                 <button type="button" className="button secondary compact" onClick={retry}>
