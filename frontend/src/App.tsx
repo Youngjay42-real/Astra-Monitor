@@ -1,8 +1,9 @@
-import { lazy, Suspense, useState } from 'react'
-import { ArrowRight, ArrowUpRight, Bone, Brain, HeartPulse, Menu, Radiation, Shield, Sparkles, X } from 'lucide-react'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { ArrowUpRight, Bone, Brain, HeartPulse, Menu, Radiation, Shield, Smartphone, Sparkles, X } from 'lucide-react'
 import { api, isMock } from './api/client'
 import type { DomainName } from './api/schemas'
 import { useResource } from './hooks/useResource'
+import { DEFAULT_MISSION_CODE, readMissionCode } from './lib/mission'
 import './App.css'
 
 const EarthGlobe = lazy(() => import('./components/EarthGlobe'))
@@ -19,8 +20,12 @@ function App() {
   const [selectedDomain, setSelectedDomain] = useState<DomainName>()
   const status = useResource(api.status)
   const evidence = useResource(api.evidence)
-  const checkins = useResource(api.checkins)
+  const checkins = useResource(api.checkins, { pollMs: 8000 })
   const selected = selectedDomain && status.data?.domains[selectedDomain]
+  const [missionCode, setMissionCode] = useState(DEFAULT_MISSION_CODE)
+  useEffect(() => {
+    setMissionCode(readMissionCode())
+  }, [])
 
   return <>
     <a className="skip-link" href="#main">Skip to content</a>
@@ -38,7 +43,12 @@ function App() {
         <div className="hero-copy">
           <h1 id="hero-title">A world away.<br />Still human.</h1>
           <p>Explore the science that keeps people healthy beyond our home planet.</p>
-          <div className="hero-actions"><a className="button button-primary" href="#crew-health">Explore crew health</a><a className="text-link" href="#research">Browse NASA research<ArrowRight size={21} aria-hidden="true" /></a></div>
+          <div className="hero-actions">
+            <a className="button button-primary" href="#crew-health">Explore crew health</a>
+            <a className="text-link" href={`/dashboard.html?mission=${encodeURIComponent(missionCode)}#scan`}>
+              Scan with phone<Smartphone size={21} aria-hidden="true" />
+            </a>
+          </div>
         </div>
         <div className="hero-planet"><Suspense fallback={<div className="earth-poster" role="status"><img src="/textures/earth-fallback.jpg" alt="Earth in NASA's Blue Marble composite" /><span>Preparing your view of Earth…</span></div>}><EarthGlobe /></Suspense></div>
         <div className="hero-bottom"><span className="scroll-hint">Drag to explore · Scroll to zoom</span><a href="https://svs.gsfc.nasa.gov/2915/" target="_blank" rel="noreferrer">Imagery: NASA Blue Marble<ArrowUpRight size={12} aria-hidden="true" /></a></div>
@@ -57,7 +67,7 @@ function App() {
       </section>
       <section className="log-section page-section" id="mission-log" aria-labelledby="log-title">
         <div className="section-heading"><div><span className="section-number">02 / MISSION LOG</span><h2 id="log-title">Every day.<br />Every small signal.</h2></div><div className="log-intro"><p>A place to record the human experience of a mission, one check-in at a time.</p><a className="button button-outline" href="/dashboard.html#check-in">Record a check-in<ArrowUpRight size={16} aria-hidden="true" /></a></div></div>
-        <div className="log-caption"><span>{isMock ? 'SIMULATED CREW RECORDS' : 'CREW RECORDS'}</span><span>{checkins.data?.length ?? '—'} CHECK-INS</span></div>
+        <div className="log-caption"><span>{isMock ? 'SIMULATED CREW RECORDS' : 'CREW RECORDS'} · LIVE</span><span>{checkins.data?.length ?? '—'} CHECK-INS · {missionCode}</span></div>
         {checkins.loading && <p className="resource-message" role="status">Loading mission log…</p>}
         {checkins.error && <div className="resource-error" role="alert">{checkins.error}<button className="text-link" onClick={() => void checkins.reload()}>Retry</button></div>}
         {checkins.data?.length === 0 && <p className="resource-message">Your mission log is ready for its first check-in.</p>}

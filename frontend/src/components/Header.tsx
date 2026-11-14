@@ -2,8 +2,8 @@ import { Orbit } from 'lucide-react'
 
 export function Header({ crew, linkState }: { crew?: string; linkState: 'live' | 'offline' | 'loading' }) {
   const modeLabel = {
-    live: 'LIVE MISSION LINK',
-    offline: 'LINK OFFLINE',
+    live: 'LIVE',
+    offline: 'OFFLINE',
     loading: 'LINKING…',
   }[linkState]
 
@@ -15,10 +15,11 @@ export function Header({ crew, linkState }: { crew?: string; linkState: 'live' |
           <span>ASTRA-MED</span>
         </a>
         <nav aria-label="Main navigation">
-          <a href="#overview">Overview</a>
-          <a href="#check-in">Check-in</a>
-          <a href="#protocols">Protocols</a>
-          <a href="#inventory">Inventory</a>
+          <a href="#scan">Scan</a>
+          <a href="#check-in">Log</a>
+          <a href="#monitors">Scores</a>
+          <a href="#protocols">Act</a>
+          <a href="#context">Context</a>
         </nav>
         <div className="crew-context">
           <span className={`data-mode link-${linkState}`}>

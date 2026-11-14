@@ -17,4 +17,11 @@ button:disabled { cursor: default; opacity: .45; }
 h1, h2, h3, p { margin: 0; }
 button, a { -webkit-user-select: none; user-select: none; }
 ::selection { background: #bce5ff; color: #05080e; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  /* Keep rocket intro animatable (portaled on body). Mute motion inside the app shell. */
+  #root, #root *, #root *::before, #root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
