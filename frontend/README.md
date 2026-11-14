@@ -36,8 +36,17 @@ Frontend contributor: [@10kash](https://github.com/10kash).
 
 ## Deploy the frontend on Render
 
-Create a Render Blueprint from this repository's `main` branch using the root [`render.yaml`](../render.yaml). It defines the `astra-med-frontend` static site, uses Node.js 22, builds from `frontend/` with `npm ci --include=dev && npm run build`, and publishes `frontend/dist/`.
+Create a Render Blueprint from this repository's `main` branch using the root [`render.yaml`](../render.yaml). It defines the `astra-med-frontend` static site, uses Node.js 22, requires the backend URL before running `npm ci --include=dev && npm run build` from `frontend/`, and publishes `frontend/dist/`.
 
 Both `/` and `/dashboard.html` are built as real HTML pages. No catch-all SPA rewrite is required. The existing API Blueprint remains separate at [`backend/render.yaml`](../backend/render.yaml).
 
-The frontend Blueprint explicitly enables demo mode (`VITE_USE_MOCK=true`), so the site works without backend credentials. To connect the API later, set `VITE_USE_MOCK=false` and `VITE_API_BASE_URL` to your backend's public HTTPS URL in the frontend service's Render environment, allow the frontend origin in the backend's CORS configuration, then rebuild and deploy the frontend. These Vite settings are compiled into the static assets.
+The frontend Blueprint disables mock mode and uses the existing API. In the **frontend static site's** Render Environment settings, configure:
+
+| Variable | Value |
+| --- | --- |
+| `VITE_USE_MOCK` | `false` |
+| `VITE_API_BASE_URL` | Your existing backend's public HTTPS origin, without `/api` or `/docs` |
+
+The Blueprint prompts for `VITE_API_BASE_URL` during initial creation. For an already-created frontend service, add the variable manually in Render Environment: `sync: false` does not prompt again on later Blueprint syncs. The build fails clearly if the variable is missing, instead of publishing an API build that falls back to localhost.
+
+On the existing backend, include the frontend's exact public origin in the comma-separated `CORS_ORIGINS` setting and redeploy that backend configuration if needed. Then choose **Save, rebuild, and deploy** for the frontend. Vite compiles these settings into the static assets, so deploying an existing build does not apply a new API URL. No new backend or database is created by the frontend Blueprint.

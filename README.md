@@ -18,7 +18,7 @@ The frontend defaults to explicitly labeled simulated data. Set `VITE_USE_MOCK=f
 
 ## Render configuration
 
-The root [`render.yaml`](render.yaml) configures the frontend as a Render static site. Create a Blueprint from that file to deploy it in demo mode. See the [frontend deployment instructions](frontend/README.md#deploy-the-frontend-on-render) to connect a live API later. The existing [backend Blueprint](backend/render.yaml) configures the API separately.
+The root [`render.yaml`](render.yaml) configures the frontend as a Render static site connected to your existing backend. Set `VITE_API_BASE_URL` to the backend's public HTTPS origin in the frontend service's Render environment. Mock mode is disabled, and the build requires this URL. See the [frontend deployment instructions](frontend/README.md#deploy-the-frontend-on-render). The existing [backend Blueprint](backend/render.yaml) configures the API separately.
 
 ## Contributor
 
