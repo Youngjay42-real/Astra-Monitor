@@ -2,10 +2,10 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import router
 from app.config import get_settings
@@ -25,6 +25,29 @@ def _frontend_dist() -> Path | None:
     return None
 
 
+class OpenCORSMiddleware(BaseHTTPMiddleware):
+    """Always allow browser frontends — ignores leftover CORS_ORIGINS env values."""
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            return Response(
+                status_code=204,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": request.headers.get(
+                        "access-control-request-headers", "*"
+                    ),
+                    "Access-Control-Max-Age": "600",
+                },
+            )
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
@@ -40,17 +63,7 @@ async def lifespan(_app: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
-
-    # Always open CORS for this Space Apps demo so any Render/static origin can call the API.
-    # (allow_credentials cannot be true with "*".)
-    _ = settings.cors_origin_list  # kept for future lockdown via env if needed
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=False,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    app.add_middleware(OpenCORSMiddleware)
     app.include_router(router)
 
     @app.get("/api")
@@ -75,18 +88,14 @@ def create_app() -> FastAPI:
         def dashboard_page() -> FileResponse:
             return FileResponse(dist / "dashboard.html")
 
-        # Public textures / favicon from Vite public/
-        for name in ("favicon.svg", "icons.svg", "earth-horizon.webp"):
-            file_path = dist / name
+        for static_name in ("favicon.svg", "icons.svg", "earth-horizon.webp"):
+            file_path = dist / static_name
             if file_path.exists():
 
-                def _make_file_route(path: Path):
-                    def _serve() -> FileResponse:
-                        return FileResponse(path)
+                def _serve(path: Path = file_path) -> FileResponse:
+                    return FileResponse(path)
 
-                    return _serve
-
-                app.add_api_route(f"/{name}", _make_file_route(file_path), methods=["GET"])
+                app.add_api_route(f"/{static_name}", _serve, methods=["GET"])
 
         textures = dist / "textures"
         if textures.is_dir():
@@ -94,12 +103,14 @@ def create_app() -> FastAPI:
     else:
 
         @app.get("/")
-        def root() -> dict[str, str]:
-            return {
-                "name": settings.app_name,
-                "docs": "/docs",
-                "health": "/api/health",
-            }
+        def root() -> JSONResponse:
+            return JSONResponse(
+                {
+                    "name": settings.app_name,
+                    "docs": "/docs",
+                    "health": "/api/health",
+                }
+            )
 
     return app
 
