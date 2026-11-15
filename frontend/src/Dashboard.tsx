@@ -19,7 +19,7 @@ import {
   ScrollText,
 } from 'lucide-react'
 import { api, errorMessage } from './api/client'
-import type { MissionChatTurn, SessionStatus } from './api/schemas'
+import type { MissionChatTurn, SessionSync } from './api/schemas'
 import { useResource } from './hooks/useResource'
 import { extractVitalsFromImage } from './lib/scanVitals'
 import { estimatePulseFromVideo } from './lib/pulseFromVideo'
@@ -52,14 +52,21 @@ async function blobToFrame(blob: Blob) {
   return { mime_type: blob.type || 'image/jpeg', data_base64: btoa(binary) }
 }
 
-function captureFrame(video: HTMLVideoElement): Promise<Blob | null> {
+function captureFrame(
+  video: HTMLVideoElement,
+  opts: { maxWidth?: number; quality?: number } = {},
+): Promise<Blob | null> {
   const canvas = document.createElement('canvas')
-  canvas.width = video.videoWidth || 720
-  canvas.height = video.videoHeight || 1280
+  const srcW = video.videoWidth || 720
+  const srcH = video.videoHeight || 1280
+  const maxWidth = opts.maxWidth ?? 720
+  const scale = Math.min(1, maxWidth / srcW)
+  canvas.width = Math.max(1, Math.round(srcW * scale))
+  canvas.height = Math.max(1, Math.round(srcH * scale))
   const ctx = canvas.getContext('2d')
   if (!ctx || !video.videoWidth) return Promise.resolve(null)
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85))
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', opts.quality ?? 0.85))
 }
 
 function formatVisualReply(mode: Mode, next: Awaited<ReturnType<typeof api.observeScan>>): string {
@@ -85,6 +92,10 @@ export default function Dashboard() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const sleepTimer = useRef(0)
+  const framePublishTimer = useRef(0)
+  const framePollTimer = useRef(0)
+  const frameRevRef = useRef(0)
+  const publishingFrame = useRef(false)
   const endRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const revisionRef = useRef(0)
@@ -102,8 +113,11 @@ export default function Dashboard() {
   const checkins = useResource(api.checkins, { pollMs: 10000 })
   const predictions = useResource(api.predictions, { pollMs: 12000 })
 
-  const [session, setSession] = useState<SessionStatus | null>(null)
+  const [session, setSession] = useState<SessionSync | null>(null)
   const [live, setLive] = useState(false)
+  const [remoteLive, setRemoteLive] = useState(false)
+  const [remoteFrameUrl, setRemoteFrameUrl] = useState<string | null>(null)
+  const remoteUrlRef = useRef<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [sleeping, setSleeping] = useState(false)
   const [pulseBusy, setPulseBusy] = useState(false)
@@ -129,7 +143,56 @@ export default function Dashboard() {
       if (!busyRef.current && payload.turns.length) setTurns(payload.turns)
       if (payload.events?.length) setTimeline(payload.events as TimelineEvent[])
     }
+    if (payload.frame_live) {
+      setRemoteLive(true)
+      if (!isPhoneSession) setDrawer((cur) => cur ?? 'live')
+    } else if (!payload.frame_live && frameRevRef.current > 0) {
+      setRemoteLive(false)
+    }
+  }, [isPhoneSession])
+
+  const setRemotePreview = useCallback((url: string | null) => {
+    if (remoteUrlRef.current && remoteUrlRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(remoteUrlRef.current)
+    }
+    remoteUrlRef.current = url
+    setRemoteFrameUrl(url)
   }, [])
+
+  const publishCameraFrame = useCallback(async () => {
+    if (!isPhoneSession || publishingFrame.current) return
+    const video = videoRef.current
+    if (!video || !streamRef.current || !video.videoWidth) return
+    publishingFrame.current = true
+    try {
+      const blob = await captureFrame(video, { maxWidth: 480, quality: 0.55 })
+      if (!blob) return
+      const frame = await blobToFrame(blob)
+      await api.sessionPutFrame(pairId, {
+        mime_type: frame.mime_type,
+        data_base64: frame.data_base64,
+        live: true,
+      })
+    } catch {
+      /* keep trying on next tick */
+    } finally {
+      publishingFrame.current = false
+    }
+  }, [isPhoneSession, pairId])
+
+  const pullRemoteFrame = useCallback(async () => {
+    if (isPhoneSession) return
+    try {
+      const frame = await api.sessionGetFrame(pairId)
+      if (frame.frame_revision === frameRevRef.current) return
+      frameRevRef.current = frame.frame_revision
+      setRemoteLive(Boolean(frame.live))
+      setRemotePreview(`data:${frame.mime_type};base64,${frame.data_base64}`)
+      setDrawer((cur) => cur ?? 'live')
+    } catch {
+      /* 404 = no frame yet */
+    }
+  }, [isPhoneSession, pairId, setRemotePreview])
 
   const publishTurns = useCallback(
     async (extra: MissionChatTurn[]) => {
@@ -180,15 +243,48 @@ export default function Dashboard() {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [turns.length])
 
+  useEffect(() => {
+    window.clearInterval(framePublishTimer.current)
+    if (!live || !isPhoneSession) return
+    void publishCameraFrame()
+    framePublishTimer.current = window.setInterval(() => {
+      void publishCameraFrame()
+    }, 400)
+    return () => window.clearInterval(framePublishTimer.current)
+  }, [live, isPhoneSession, publishCameraFrame])
+
+  useEffect(() => {
+    window.clearInterval(framePollTimer.current)
+    if (isPhoneSession) return
+    const tick = () => {
+      if (session?.frame_live || remoteLive || session?.phone_connected) void pullRemoteFrame()
+    }
+    tick()
+    framePollTimer.current = window.setInterval(tick, 350)
+    return () => window.clearInterval(framePollTimer.current)
+  }, [isPhoneSession, session?.frame_live, session?.phone_connected, remoteLive, pullRemoteFrame])
+
   function stopCamera() {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     window.clearInterval(sleepTimer.current)
+    window.clearInterval(framePublishTimer.current)
     setLive(false)
     setSleeping(false)
+    if (isPhoneSession) {
+      void api.sessionPutFrame(pairId, { mime_type: 'image/jpeg', data_base64: '', live: false }).catch(() => undefined)
+    }
   }
 
-  useEffect(() => () => stopCamera(), [])
+  useEffect(
+    () => () => {
+      stopCamera()
+      window.clearInterval(framePollTimer.current)
+      if (remoteUrlRef.current?.startsWith('blob:')) URL.revokeObjectURL(remoteUrlRef.current)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount cleanup only
+    [],
+  )
 
   function pushLocal(role: MissionChatTurn['role'], content: string) {
     setTurns((t) => [...t, { role, content }])
@@ -215,12 +311,19 @@ export default function Dashboard() {
         await video.play()
       }
       if (isPhoneSession) {
-        void api.registerSession(pairId, { device: 'phone', mission: missionCode }).then(setSession)
+        void api
+          .registerSession(pairId, { device: 'phone', mission: missionCode })
+          .then(() => api.sessionSync(pairId))
+          .then(applySync)
+          .catch(() => undefined)
       }
-      const note = 'Rear camera is live. Tap Check on me or Sleep watch — chat stays synced with desktop.'
+      const note = isPhoneSession
+        ? 'Rear camera is live and sharing to the desktop console. Tap Check on me, Pulse check, or Sleep watch.'
+        : 'Local camera is live. Link a phone to mirror its rear camera here.'
       pushLocal('assistant', note)
       void publishTurns([{ role: 'assistant', content: note }])
-      void publishEvent('Camera', 'Rear camera enabled')
+      void publishEvent('Camera', isPhoneSession ? 'Phone camera sharing to desktop' : 'Local camera enabled')
+      setDrawer('live')
     } catch {
       pushLocal('assistant', friendlyError(new Error('camera permission')))
     }
@@ -556,12 +659,30 @@ export default function Dashboard() {
               </button>
             </header>
             <div className="mc-drawer-body">
-              <div className={`mc-camera ${live ? 'is-live' : ''}`}>
-                <div className="mc-camera-badge">{live ? 'Live camera' : 'Camera idle'}</div>
-                <video ref={videoRef} playsInline muted style={{ display: live ? 'block' : 'none' }} />
-                {!live ? (
+              <div className={`mc-camera ${live || remoteLive ? 'is-live' : ''}`}>
+                <div className="mc-camera-badge">
+                  {live
+                    ? isPhoneSession
+                      ? 'Phone cam · sharing'
+                      : 'Local camera'
+                    : remoteLive
+                      ? 'Phone cam · live'
+                      : 'Camera idle'}
+                </div>
+                <video
+                  ref={videoRef}
+                  playsInline
+                  muted
+                  style={{ display: live ? 'block' : 'none' }}
+                />
+                {!live && remoteLive && remoteFrameUrl ? (
+                  <img className="mc-remote-feed" src={remoteFrameUrl} alt="Live phone camera feed" />
+                ) : null}
+                {!live && !remoteLive ? (
                   <div className="mc-camera-placeholder">
-                    Open the rear camera for live feed, pulse check, and observe.
+                    {isPhoneSession
+                      ? 'Open the rear camera — the feed will appear on the desktop console.'
+                      : 'Link a phone and open its rear camera to see the live feed here.'}
                   </div>
                 ) : null}
                 {busy || pulseBusy ? (

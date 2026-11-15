@@ -362,5 +362,28 @@ class SessionSyncOut(BaseModel):
     phone_at: str | None = None
     desktop_at: str | None = None
     revision: int = 0
+    frame_revision: int = 0
+    frame_live: bool = False
+    frame_at: str | None = None
     turns: list[MissionChatTurn] = Field(default_factory=list)
     events: list[dict] = Field(default_factory=list)
+
+
+class SessionFrameIn(BaseModel):
+    mime_type: str = Field(default="image/jpeg", max_length=40)
+    data_base64: str = Field(default="", max_length=450_000)
+    live: bool = True
+
+
+class SessionFrameOut(BaseModel):
+    mime_type: str = "image/jpeg"
+    data_base64: str
+    at: str | None = None
+    live: bool = True
+    frame_revision: int = 0
+
+
+class SessionFrameAck(BaseModel):
+    ok: bool = True
+    frame_revision: int = 0
+    live: bool = True

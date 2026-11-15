@@ -24,6 +24,9 @@ from app.schemas import (
     ObserveScanOut,
     ObserveScanRequest,
     SessionEventRequest,
+    SessionFrameAck,
+    SessionFrameIn,
+    SessionFrameOut,
     SessionRegister,
     SessionStatus,
     SessionSyncOut,
@@ -92,6 +95,28 @@ def session_append_event(session_id: str, body: SessionEventRequest) -> SessionS
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return SessionSyncOut.model_validate(data)
+
+
+@router.post("/session/{session_id}/frame", response_model=SessionFrameAck)
+def session_put_frame(session_id: str, body: SessionFrameIn) -> SessionFrameAck:
+    try:
+        data = session_hub.put_frame(
+            session_id,
+            mime_type=body.mime_type,
+            data_base64=body.data_base64,
+            live=body.live,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SessionFrameAck.model_validate(data)
+
+
+@router.get("/session/{session_id}/frame", response_model=SessionFrameOut)
+def session_get_frame(session_id: str) -> SessionFrameOut:
+    data = session_hub.get_frame(session_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="No live frame.")
+    return SessionFrameOut.model_validate(data)
 
 
 @router.get("/status", response_model=FeStatusOut)

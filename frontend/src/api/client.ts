@@ -13,6 +13,8 @@ import {
   observeScanSchema,
   missionChatInputSchema,
   missionChatSchema,
+  sessionFrameAckSchema,
+  sessionFrameSchema,
   sessionStatusSchema,
   sessionSyncSchema,
   type MissionChatInput,
@@ -168,4 +170,14 @@ export const api = {
       method: 'POST',
       body: { title, detail },
     }),
+  sessionPutFrame: (
+    sessionId: string,
+    body: { mime_type: string; data_base64: string; live?: boolean },
+  ) =>
+    request(`/api/session/${encodeURIComponent(sessionId)}/frame`, sessionFrameAckSchema, {
+      method: 'POST',
+      body: { live: true, ...body },
+    }),
+  sessionGetFrame: (sessionId: string, signal?: AbortSignal) =>
+    request(`/api/session/${encodeURIComponent(sessionId)}/frame`, sessionFrameSchema, { signal }),
 }

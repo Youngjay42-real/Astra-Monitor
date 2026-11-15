@@ -9,7 +9,7 @@ _sessions: dict[str, dict[str, Any]] = {}
 
 WELCOME = (
     "Welcome aboard. Scan the QR on desktop to link your phone. "
-    "On phone, the rear camera opens for crew checks. Chat stays synced on both screens."
+    "On phone, open the rear camera — the live feed mirrors on this console. Chat stays synced."
 )
 
 
@@ -29,6 +29,8 @@ def _ensure(session_id: str, mission: str = "") -> dict[str, Any]:
             "phone_at": None,
             "created_at": _now(),
             "revision": 1,
+            "frame_revision": 0,
+            "frame": None,
             "turns": [{"role": "assistant", "content": WELCOME, "at": _now()}],
             "events": [],
         }
@@ -105,6 +107,54 @@ def snapshot(session_id: str) -> dict[str, object]:
     }
 
 
+def put_frame(
+    session_id: str,
+    *,
+    mime_type: str,
+    data_base64: str,
+    live: bool = True,
+) -> dict[str, Any]:
+    row = _ensure(session_id)
+    if not live:
+        row["frame"] = None
+        row["frame_revision"] = int(row.get("frame_revision") or 0) + 1
+        return {"ok": True, "frame_revision": int(row["frame_revision"]), "live": False}
+    mime = (mime_type or "image/jpeg").strip().lower()
+    if mime not in ("image/jpeg", "image/jpg", "image/png", "image/webp"):
+        raise ValueError("Unsupported frame type.")
+    data = (data_base64 or "").strip()
+    if not data:
+        raise ValueError("Frame data required.")
+    if len(data) > 450_000:
+        raise ValueError("Frame too large.")
+    row["frame"] = {
+        "mime_type": "image/jpeg" if mime == "image/jpg" else mime,
+        "data_base64": data,
+        "at": _now(),
+        "live": True,
+    }
+    row["frame_revision"] = int(row.get("frame_revision") or 0) + 1
+    row["phone_at"] = _now()
+    return {"ok": True, "frame_revision": int(row["frame_revision"]), "live": True}
+
+
+def get_frame(session_id: str) -> dict[str, Any] | None:
+    sid = (session_id or "").strip()
+    row = _sessions.get(sid)
+    if not row:
+        return None
+    frame = row.get("frame")
+    if not isinstance(frame, dict) or not frame.get("data_base64"):
+        return None
+    return {
+        "mime_type": frame.get("mime_type") or "image/jpeg",
+        "data_base64": frame["data_base64"],
+        "at": frame.get("at"),
+        "live": bool(frame.get("live")),
+        "frame_revision": int(row.get("frame_revision") or 0),
+    }
+
+
 def sync_payload(session_id: str) -> dict[str, Any]:
     sid = (session_id or "").strip()
     base = snapshot(sid)
@@ -113,6 +163,9 @@ def sync_payload(session_id: str) -> dict[str, Any]:
         return {
             **base,
             "revision": 0,
+            "frame_revision": 0,
+            "frame_live": False,
+            "frame_at": None,
             "turns": [],
             "events": [],
         }
@@ -121,9 +174,13 @@ def sync_payload(session_id: str) -> dict[str, Any]:
         for t in (row.get("turns") or [])
         if isinstance(t, dict) and t.get("content")
     ]
+    frame = row.get("frame") if isinstance(row.get("frame"), dict) else None
     return {
         **base,
         "revision": int(row.get("revision") or 0),
+        "frame_revision": int(row.get("frame_revision") or 0),
+        "frame_live": bool(frame and frame.get("live") and frame.get("data_base64")),
+        "frame_at": frame.get("at") if frame else None,
         "turns": turns,
         "events": list(row.get("events") or []),
     }

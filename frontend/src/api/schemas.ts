@@ -151,6 +151,9 @@ export type SessionStatus = z.infer<typeof sessionStatusSchema>
 
 export const sessionSyncSchema = sessionStatusSchema.extend({
   revision: z.number().int().nonnegative(),
+  frame_revision: z.number().int().nonnegative().default(0),
+  frame_live: z.boolean().default(false),
+  frame_at: z.string().nullable().optional(),
   turns: z.array(missionChatTurnSchema),
   events: z.array(
     z.object({
@@ -163,3 +166,19 @@ export const sessionSyncSchema = sessionStatusSchema.extend({
 })
 
 export type SessionSync = z.infer<typeof sessionSyncSchema>
+
+export const sessionFrameSchema = z.object({
+  mime_type: z.string(),
+  data_base64: z.string(),
+  at: z.string().nullable().optional(),
+  live: z.boolean().default(true),
+  frame_revision: z.number().int().nonnegative().default(0),
+})
+
+export const sessionFrameAckSchema = z.object({
+  ok: z.boolean(),
+  frame_revision: z.number().int().nonnegative(),
+  live: z.boolean(),
+})
+
+export type SessionFrame = z.infer<typeof sessionFrameSchema>
