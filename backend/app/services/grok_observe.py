@@ -1,4 +1,4 @@
-"""Gemini multimodal observe — frames + NASA HRP context → short health assessment."""
+"""Grok multimodal observe — frames + NASA HRP context → short health assessment."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import re
 from typing import Any, Literal
 
 from app.config import get_settings
-from app.services.gemini_client import DEFAULT_MODEL, generate_content
+from app.services.grok_client import DEFAULT_MODEL, chat_completions
 from app.services.nasa_hrp_context import build_observe_brief
 
 Mode = Literal["assess", "sleep"]
@@ -46,7 +46,7 @@ Return ONLY JSON:
 """
 
 
-def _parse_json(text: str) -> dict[str, Any]:
+def parse_json(text: str) -> dict[str, Any]:
     text = text.strip()
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
@@ -63,36 +63,35 @@ def _clamp(v: Any, default: int = 40) -> int:
 
 def analyze_frames(frames: list[tuple[bytes, str]], mode: Mode = "assess") -> dict[str, Any]:
     settings = get_settings()
-    api_key = (settings.gemini_api_key or "").strip()
-    model = (settings.gemini_model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    api_key = (settings.xai_api_key or "").strip()
+    model = (settings.grok_model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY is not configured. Add it to backend/.env.")
+        raise RuntimeError("XAI_API_KEY is not configured. Add it to backend/.env.")
     if not frames:
         raise ValueError("At least one frame is required.")
 
-    parts: list[dict[str, Any]] = [{"text": _prompt(mode)}]
+    content: list[dict[str, Any]] = [{"type": "text", "text": _prompt(mode)}]
     for data, mime in frames[:3]:
-        parts.append(
+        mime_type = mime or "image/jpeg"
+        if mime_type not in ("image/jpeg", "image/jpg", "image/png"):
+            mime_type = "image/jpeg"
+        b64 = base64.b64encode(data).decode("ascii")
+        content.append(
             {
-                "inline_data": {
-                    "mime_type": mime or "image/jpeg",
-                    "data": base64.b64encode(data).decode("ascii"),
-                }
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{mime_type};base64,{b64}",
+                    "detail": "high",
+                },
             }
         )
 
-    payload = {
-        "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {"temperature": 0.25, "responseMimeType": "application/json"},
-    }
-    body, model = generate_content(api_key, model, payload, timeout=45.0)
+    messages = [{"role": "user", "content": content}]
+    text, model = chat_completions(
+        api_key, model, messages, temperature=0.25, timeout=45.0, json_mode=True
+    )
 
-    try:
-        text = body["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError("Unexpected Gemini response.") from exc
-
-    raw = _parse_json(text)
+    raw = parse_json(text)
     domains = raw.get("domain_attention") or {}
     height = raw.get("height_cm")
     try:
@@ -121,8 +120,12 @@ def analyze_frames(frames: list[tuple[bytes, str]], mode: Mode = "assess") -> di
         "wellness_score": _clamp(raw.get("wellness_score"), 45),
         "height_cm": height_cm,
         "temperature_c": temperature_c,
-        "temperature_note": str(raw.get("temperature_note") or "No thermometer visible; phone cannot measure core temp.")[:240],
-        "sleep_note": str(raw.get("sleep_note") or ("Sleep-watch pass complete." if mode == "sleep" else ""))[:240],
+        "temperature_note": str(
+            raw.get("temperature_note") or "No thermometer visible; phone cannot measure core temp."
+        )[:240],
+        "sleep_note": str(
+            raw.get("sleep_note") or ("Sleep-watch pass complete." if mode == "sleep" else "")
+        )[:240],
         "observations": observations,
         "domain_attention": {
             "radiation": _clamp(domains.get("radiation"), 20),

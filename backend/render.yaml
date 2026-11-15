@@ -15,11 +15,11 @@ services:
         value: "*"
       - key: PYTHON_VERSION
         value: "3.12.8"
-      # Required for camera observe / sleep-watch (POST /api/observe/scan)
-      - key: GEMINI_API_KEY
+      # Required for camera observe / sleep-watch / mission chat (xAI Grok)
+      - key: XAI_API_KEY
         sync: false
-      - key: GEMINI_MODEL
-        value: "gemini-3.8-flash"
+      - key: GROK_MODEL
+        value: "grok-4.7"
       - key: CREW_NAME
         value: "Sim Crew A"
       - key: MISSION_DAY

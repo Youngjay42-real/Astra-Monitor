@@ -14,7 +14,9 @@ import {
   missionChatInputSchema,
   missionChatSchema,
   sessionStatusSchema,
+  sessionSyncSchema,
   type MissionChatInput,
+  type MissionChatTurn,
   predictionsSchema,
   protocolSchema,
   statusSchema,
@@ -154,4 +156,16 @@ export const api = {
     }),
   sessionStatus: (sessionId: string, signal?: AbortSignal) =>
     request(`/api/session/${encodeURIComponent(sessionId)}`, sessionStatusSchema, { signal }),
+  sessionSync: (sessionId: string, signal?: AbortSignal) =>
+    request(`/api/session/${encodeURIComponent(sessionId)}/sync`, sessionSyncSchema, { signal }),
+  sessionAppendTurns: (sessionId: string, turns: MissionChatTurn[]) =>
+    request(`/api/session/${encodeURIComponent(sessionId)}/turns`, sessionSyncSchema, {
+      method: 'POST',
+      body: { turns },
+    }),
+  sessionAppendEvent: (sessionId: string, title: string, detail: string) =>
+    request(`/api/session/${encodeURIComponent(sessionId)}/events`, sessionSyncSchema, {
+      method: 'POST',
+      body: { title, detail },
+    }),
 }

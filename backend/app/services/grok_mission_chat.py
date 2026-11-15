@@ -1,4 +1,4 @@
-"""Gemini mission assistant — text chat with live medical inventory context."""
+"""Grok mission assistant — text chat with live medical inventory context."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import json
 from typing import Any
 
 from app.config import get_settings
-from app.services.gemini_client import DEFAULT_MODEL, generate_content
-from app.services.gemini_observe import _parse_json
+from app.services.grok_client import DEFAULT_MODEL, chat_completions
+from app.services.grok_observe import parse_json
 
 SYSTEM = """You are ASTRA-MED's mission assistant (exploration demo, not clinical diagnosis).
 
@@ -22,54 +22,43 @@ Return ONLY JSON:
 """
 
 
-def _inventory_lines(items: list[dict[str, Any]]) -> str:
-    return json.dumps(items, indent=2)
-
-
 def mission_chat(
     message: str,
     history: list[dict[str, str]],
     inventory: list[dict[str, Any]],
 ) -> dict[str, Any]:
     settings = get_settings()
-    api_key = (settings.gemini_api_key or "").strip()
-    model = (settings.gemini_model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    api_key = (settings.xai_api_key or "").strip()
+    model = (settings.grok_model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY is not configured. Add it to backend/.env.")
+        raise RuntimeError("XAI_API_KEY is not configured. Add it to backend/.env.")
     message = (message or "").strip()
     if not message:
         raise ValueError("Message is required.")
 
-    parts: list[dict[str, Any]] = []
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": SYSTEM},
+        {
+            "role": "user",
+            "content": f"Current medical inventory JSON:\n{json.dumps(inventory, indent=2)}",
+        },
+    ]
     for turn in history[-8:]:
         role = turn.get("role", "user")
         text = str(turn.get("content", "")).strip()
         if not text:
             continue
-        if role not in ("user", "model"):
-            role = "user"
-        parts.append({"text": f"{role.upper()}: {text}"})
-    parts.append(
-        {
-            "text": (
-                f"{SYSTEM}\n\nINVENTORY:\n{_inventory_lines(inventory)}\n\n"
-                f"USER: {message}\n\nRespond with JSON only."
-            )
-        }
+        if role in ("assistant", "model"):
+            messages.append({"role": "assistant", "content": text})
+        else:
+            messages.append({"role": "user", "content": text})
+    messages.append({"role": "user", "content": message})
+
+    text, model = chat_completions(
+        api_key, model, messages, temperature=0.35, timeout=60.0, json_mode=True
     )
 
-    payload = {
-        "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {"temperature": 0.35, "responseMimeType": "application/json"},
-    }
-    body, model = generate_content(api_key, model, payload, timeout=60.0)
-
-    try:
-        text = body["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError("Unexpected Gemini response.") from exc
-
-    raw = _parse_json(text)
+    raw = parse_json(text)
     updates = raw.get("inventory_updates") or []
     if not isinstance(updates, list):
         updates = []

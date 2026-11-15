@@ -1,5 +1,24 @@
 :root {
- font-family:'DM Sans',sans-serif;color:#eef3f5;background:#07121b;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;
- --void:#07121b;--surface:#0d1c27;--surface-hover:#122734;--line:#263a47;--text:#eef3f5;--muted:#98acba;--mint:#b5e8d0;--amber:#e8b974;--critical:#f49891;
- --heading:'Space Grotesk',sans-serif;--mono:'IBM Plex Mono',monospace;--radius:4px;--ease:cubic-bezier(.2,.8,.2,1);
+  font-family: 'DM Sans', sans-serif;
+  color: #f2f5f8;
+  background: #05080e;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --void: #05080e;
+  --surface: #0a111a;
+  --surface-hover: #121a24;
+  --line: #ffffff24;
+  --text: #f2f5f8;
+  --muted: #a6b2c2;
+  /* Homepage accent — ice blue (mint kept as alias so older rules still match) */
+  --ice: #bce5ff;
+  --mint: #bce5ff;
+  --amber: #e8b974;
+  --critical: #f49891;
+  --heading: 'DM Sans', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --radius: 7px;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  color-scheme: dark;
 }

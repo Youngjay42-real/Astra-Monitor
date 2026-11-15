@@ -309,6 +309,7 @@ class MissionChatTurn(BaseModel):
 class MissionChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     history: list[MissionChatTurn] = Field(default_factory=list, max_length=20)
+    session_id: str = Field(default="", max_length=100)
 
 
 class MissionInventoryUpdate(BaseModel):
@@ -336,3 +337,30 @@ class SessionStatus(BaseModel):
     mission: str = ""
     phone_at: str | None = None
     desktop_at: str | None = None
+
+
+class SessionTurnIn(BaseModel):
+    role: Literal["user", "assistant"] = "user"
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class SessionTurnsRequest(BaseModel):
+    turns: list[SessionTurnIn] = Field(min_length=1, max_length=20)
+
+
+class SessionEventRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    detail: str = Field(default="", max_length=500)
+
+
+class SessionSyncOut(BaseModel):
+    session_id: str
+    found: bool = False
+    phone_connected: bool = False
+    desktop_connected: bool = False
+    mission: str = ""
+    phone_at: str | None = None
+    desktop_at: str | None = None
+    revision: int = 0
+    turns: list[MissionChatTurn] = Field(default_factory=list)
+    events: list[dict] = Field(default_factory=list)

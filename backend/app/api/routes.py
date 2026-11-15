@@ -21,18 +21,21 @@ from app.schemas import (
     FeStatusOut,
     MissionChatOut,
     MissionChatRequest,
-    SessionRegister,
-    SessionStatus,
     ObserveScanOut,
     ObserveScanRequest,
+    SessionEventRequest,
+    SessionRegister,
+    SessionStatus,
+    SessionSyncOut,
+    SessionTurnsRequest,
     RadiationEvent,
     SimulationStartRequest,
     SimulationState,
 )
 from app.services import (
     fe_format,
-    gemini_mission_chat,
-    gemini_observe,
+    grok_mission_chat,
+    grok_observe,
     nasa,
     nasa_baseline,
     nlsp,
@@ -63,6 +66,32 @@ def session_register(session_id: str, body: SessionRegister) -> SessionStatus:
 @router.get("/session/{session_id}", response_model=SessionStatus)
 def session_status(session_id: str) -> SessionStatus:
     return SessionStatus.model_validate(session_hub.snapshot(session_id))
+
+
+@router.get("/session/{session_id}/sync", response_model=SessionSyncOut)
+def session_sync(session_id: str) -> SessionSyncOut:
+    return SessionSyncOut.model_validate(session_hub.sync_payload(session_id))
+
+
+@router.post("/session/{session_id}/turns", response_model=SessionSyncOut)
+def session_append_turns(session_id: str, body: SessionTurnsRequest) -> SessionSyncOut:
+    try:
+        data = session_hub.append_turns(
+            session_id,
+            [{"role": t.role, "content": t.content} for t in body.turns],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SessionSyncOut.model_validate(data)
+
+
+@router.post("/session/{session_id}/events", response_model=SessionSyncOut)
+def session_append_event(session_id: str, body: SessionEventRequest) -> SessionSyncOut:
+    try:
+        data = session_hub.append_event(session_id, body.title, body.detail)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SessionSyncOut.model_validate(data)
 
 
 @router.get("/status", response_model=FeStatusOut)
@@ -125,7 +154,7 @@ def observe_scan(body: ObserveScanRequest) -> ObserveScanOut:
             raise HTTPException(status_code=400, detail="Frame too small.")
         frames.append((raw, frame.mime_type or "image/jpeg"))
     try:
-        result = gemini_observe.analyze_frames(frames, mode=body.mode)
+        result = grok_observe.analyze_frames(frames, mode=body.mode)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
@@ -157,11 +186,17 @@ def _inventory_payload(rows: list[InventoryItem]) -> list[dict]:
 def mission_chat(body: MissionChatRequest, db: Session = Depends(get_db)) -> MissionChatOut:
     rows = db.query(InventoryItem).order_by(InventoryItem.sku.asc()).all()
     history = [
-        {"role": "model" if turn.role == "assistant" else "user", "content": turn.content}
+        {"role": "assistant" if turn.role == "assistant" else "user", "content": turn.content}
         for turn in body.history
     ]
+    sid = (body.session_id or "").strip()
+    if sid:
+        try:
+            session_hub.append_turns(sid, [{"role": "user", "content": body.message}])
+        except ValueError:
+            sid = ""
     try:
-        result = gemini_mission_chat.mission_chat(body.message, history, _inventory_payload(rows))
+        result = grok_mission_chat.mission_chat(body.message, history, _inventory_payload(rows))
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
@@ -176,8 +211,15 @@ def mission_chat(body: MissionChatRequest, db: Session = Depends(get_db)) -> Mis
     db.commit()
     rows = db.query(InventoryItem).order_by(InventoryItem.sku.asc()).all()
     updates = result.get("inventory_updates") or []
+    reply = str(result["reply"])
+    if sid:
+        try:
+            session_hub.append_turns(sid, [{"role": "assistant", "content": reply}])
+            session_hub.append_event(sid, "Message", body.message[:80])
+        except ValueError:
+            pass
     return MissionChatOut(
-        reply=result["reply"],
+        reply=reply,
         model=result["model"],
         inventory_updates=updates,
         inventory=[fe_format.format_inventory(r) for r in rows],

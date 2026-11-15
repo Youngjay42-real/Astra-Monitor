@@ -118,6 +118,7 @@ export const missionChatTurnSchema = z.object({
 export const missionChatInputSchema = z.object({
   message: z.string().min(1).max(2000),
   history: z.array(missionChatTurnSchema).max(20).default([]),
+  session_id: z.string().max(100).optional().default(''),
 })
 
 export const missionChatSchema = z.object({
@@ -147,3 +148,18 @@ export const sessionStatusSchema = z.object({
 })
 
 export type SessionStatus = z.infer<typeof sessionStatusSchema>
+
+export const sessionSyncSchema = sessionStatusSchema.extend({
+  revision: z.number().int().nonnegative(),
+  turns: z.array(missionChatTurnSchema),
+  events: z.array(
+    z.object({
+      id: z.string(),
+      at: z.string(),
+      title: z.string(),
+      detail: z.string(),
+    }),
+  ),
+})
+
+export type SessionSync = z.infer<typeof sessionSyncSchema>

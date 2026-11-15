@@ -14,8 +14,9 @@ class Settings(BaseSettings):
     nasa_cache_ttl_seconds: int = 900
     crew_name: str = "Sim Crew A"
     mission_day: int = 42
-    gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.8-flash"
+    # xAI Grok (observe + mission chat). Key from https://console.x.ai
+    xai_api_key: str = ""
+    grok_model: str = "grok-4.7"
 
     @property
     def cors_origin_list(self) -> list[str]:

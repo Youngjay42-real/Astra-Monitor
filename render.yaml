@@ -13,5 +13,6 @@ services:
         value: "true"
       - key: VITE_USE_MOCK
         value: "false"
+      # Must be the public HTTPS origin of astra-med-api (no trailing slash, no /api)
       - key: VITE_API_BASE_URL
         value: "https://astra-monitor.onrender.com"
