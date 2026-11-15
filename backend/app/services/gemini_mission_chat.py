@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import httpx
-
 from app.config import get_settings
 from app.services.gemini_client import DEFAULT_MODEL, generate_content
 from app.services.gemini_observe import _parse_json
