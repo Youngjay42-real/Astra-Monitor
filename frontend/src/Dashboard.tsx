@@ -23,6 +23,7 @@ import type { MissionChatTurn, SessionSync } from './api/schemas'
 import { useResource } from './hooks/useResource'
 import { extractVitalsFromImage } from './lib/scanVitals'
 import { estimatePulseFromVideo } from './lib/pulseFromVideo'
+import { startDesktopSubscriber, startPhonePublisher, type MirrorHandle } from './lib/webrtcMirror'
 import { qrImageUrl, syncMissionFromUrl } from './lib/mission'
 import {
   getOrCreatePairId,
@@ -90,12 +91,15 @@ const DOMAIN_LABELS = {
 
 export default function Dashboard() {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const mirrorRef = useRef<MirrorHandle | null>(null)
   const sleepTimer = useRef(0)
   const framePublishTimer = useRef(0)
   const framePollTimer = useRef(0)
   const frameRevRef = useRef(0)
   const publishingFrame = useRef(false)
+  const webrtcReady = useRef(false)
   const endRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const revisionRef = useRef(0)
@@ -143,10 +147,10 @@ export default function Dashboard() {
       if (!busyRef.current && payload.turns.length) setTurns(payload.turns)
       if (payload.events?.length) setTimeline(payload.events as TimelineEvent[])
     }
-    if (payload.frame_live) {
+    if (payload.rtc_streaming || payload.frame_live) {
       setRemoteLive(true)
       if (!isPhoneSession) setDrawer((cur) => cur ?? 'live')
-    } else if (!payload.frame_live && frameRevRef.current > 0) {
+    } else if (!payload.rtc_streaming && !payload.frame_live && frameRevRef.current > 0) {
       setRemoteLive(false)
     }
   }, [isPhoneSession])
@@ -159,13 +163,24 @@ export default function Dashboard() {
     setRemoteFrameUrl(url)
   }, [])
 
+  const stopMirror = useCallback(() => {
+    mirrorRef.current?.close()
+    mirrorRef.current = null
+    webrtcReady.current = false
+    const remote = remoteVideoRef.current
+    if (remote) {
+      remote.srcObject = null
+    }
+  }, [])
+
   const publishCameraFrame = useCallback(async () => {
-    if (!isPhoneSession || publishingFrame.current) return
+    // Lightweight still-frame fallback only until WebRTC is up (or if it fails).
+    if (!isPhoneSession || publishingFrame.current || webrtcReady.current) return
     const video = videoRef.current
     if (!video || !streamRef.current || !video.videoWidth) return
     publishingFrame.current = true
     try {
-      const blob = await captureFrame(video, { maxWidth: 480, quality: 0.55 })
+      const blob = await captureFrame(video, { maxWidth: 640, quality: 0.6 })
       if (!blob) return
       const frame = await blobToFrame(blob)
       await api.sessionPutFrame(pairId, {
@@ -181,7 +196,7 @@ export default function Dashboard() {
   }, [isPhoneSession, pairId])
 
   const pullRemoteFrame = useCallback(async () => {
-    if (isPhoneSession) return
+    if (isPhoneSession || webrtcReady.current) return
     try {
       const frame = await api.sessionGetFrame(pairId)
       if (frame.frame_revision === frameRevRef.current) return
@@ -257,20 +272,73 @@ export default function Dashboard() {
     window.clearInterval(framePollTimer.current)
     if (isPhoneSession) return
     const tick = () => {
+      if (webrtcReady.current) return
       if (session?.frame_live || remoteLive || session?.phone_connected) void pullRemoteFrame()
     }
     tick()
-    framePollTimer.current = window.setInterval(tick, 350)
+    framePollTimer.current = window.setInterval(tick, 800)
     return () => window.clearInterval(framePollTimer.current)
   }, [isPhoneSession, session?.frame_live, session?.phone_connected, remoteLive, pullRemoteFrame])
+
+  useEffect(() => {
+    if (isPhoneSession || live) return
+    if (!session?.phone_connected && !session?.rtc_streaming) return
+    if (mirrorRef.current) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const handle = await startDesktopSubscriber(
+          pairId,
+          (stream) => {
+            if (cancelled) return
+            setRemoteLive(true)
+            setRemotePreview(null)
+            setDrawer('live')
+            const el = remoteVideoRef.current
+            if (el) {
+              el.srcObject = stream
+              el.playsInline = true
+              el.muted = true
+              void el.play().catch(() => undefined)
+            }
+          },
+          {
+            onConnected: () => {
+              if (cancelled) return
+              webrtcReady.current = true
+              setRemoteLive(true)
+              setRemotePreview(null)
+            },
+            onDisconnected: () => {
+              if (cancelled) return
+              webrtcReady.current = false
+            },
+          },
+        )
+        if (cancelled) {
+          handle.close()
+          return
+        }
+        mirrorRef.current = handle
+      } catch {
+        /* JPEG fallback keeps polling */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isPhoneSession, live, pairId, session?.phone_connected, session?.rtc_streaming, setRemotePreview])
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     window.clearInterval(sleepTimer.current)
     window.clearInterval(framePublishTimer.current)
+    stopMirror()
     setLive(false)
     setSleeping(false)
+    setRemoteLive(false)
+    setRemotePreview(null)
     if (isPhoneSession) {
       void api.sessionPutFrame(pairId, { mime_type: 'image/jpeg', data_base64: '', live: false }).catch(() => undefined)
     }
@@ -299,9 +367,17 @@ export default function Dashboard() {
           facingMode: { ideal: 'environment' },
           width: { ideal: 1280 },
           height: { ideal: 720 },
+          frameRate: { ideal: 30, min: 24 },
         },
         audio: false,
       })
+      for (const track of stream.getVideoTracks()) {
+        try {
+          track.contentHint = 'motion'
+        } catch {
+          /* older WebViews */
+        }
+      }
       streamRef.current = stream
       setLive(true)
       const video = videoRef.current
@@ -316,13 +392,28 @@ export default function Dashboard() {
           .then(() => api.sessionSync(pairId))
           .then(applySync)
           .catch(() => undefined)
+        try {
+          stopMirror()
+          // Keep JPEG fallback until ICE is connected so the desktop never goes blank mid-handshake.
+          webrtcReady.current = false
+          mirrorRef.current = await startPhonePublisher(pairId, stream, {
+            onConnected: () => {
+              webrtcReady.current = true
+            },
+            onDisconnected: () => {
+              webrtcReady.current = false
+            },
+          })
+        } catch {
+          webrtcReady.current = false
+        }
       }
       const note = isPhoneSession
-        ? 'Rear camera is live and sharing to the desktop console. Tap Check on me, Pulse check, or Sleep watch.'
-        : 'Local camera is live. Link a phone to mirror its rear camera here.'
+        ? 'Rear camera is live — smooth WebRTC mirror to the desktop console. Tap Check on me, Pulse check, or Sleep watch.'
+        : 'Local camera is live. Link a phone to mirror its rear camera here in real time.'
       pushLocal('assistant', note)
       void publishTurns([{ role: 'assistant', content: note }])
-      void publishEvent('Camera', isPhoneSession ? 'Phone camera sharing to desktop' : 'Local camera enabled')
+      void publishEvent('Camera', isPhoneSession ? 'Phone camera WebRTC sharing' : 'Local camera enabled')
       setDrawer('live')
     } catch {
       pushLocal('assistant', friendlyError(new Error('camera permission')))
@@ -675,14 +766,22 @@ export default function Dashboard() {
                   muted
                   style={{ display: live ? 'block' : 'none' }}
                 />
+                <video
+                  ref={remoteVideoRef}
+                  playsInline
+                  muted
+                  autoPlay
+                  className="mc-remote-feed"
+                  style={{ display: !live && remoteLive && !remoteFrameUrl ? 'block' : 'none' }}
+                />
                 {!live && remoteLive && remoteFrameUrl ? (
                   <img className="mc-remote-feed" src={remoteFrameUrl} alt="Live phone camera feed" />
                 ) : null}
                 {!live && !remoteLive ? (
                   <div className="mc-camera-placeholder">
                     {isPhoneSession
-                      ? 'Open the rear camera — the feed will appear on the desktop console.'
-                      : 'Link a phone and open its rear camera to see the live feed here.'}
+                      ? 'Open the rear camera — the feed will appear on the desktop console in real time.'
+                      : 'Link a phone and open its rear camera to see the smooth live feed here.'}
                   </div>
                 ) : null}
                 {busy || pulseBusy ? (

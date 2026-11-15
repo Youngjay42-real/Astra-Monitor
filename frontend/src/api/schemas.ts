@@ -154,6 +154,8 @@ export const sessionSyncSchema = sessionStatusSchema.extend({
   frame_revision: z.number().int().nonnegative().default(0),
   frame_live: z.boolean().default(false),
   frame_at: z.string().nullable().optional(),
+  rtc_streaming: z.boolean().default(false),
+  rtc_revision: z.number().int().nonnegative().default(0),
   turns: z.array(missionChatTurnSchema),
   events: z.array(
     z.object({
@@ -182,3 +184,24 @@ export const sessionFrameAckSchema = z.object({
 })
 
 export type SessionFrame = z.infer<typeof sessionFrameSchema>
+
+export const sessionRtcStateSchema = z.object({
+  session_id: z.string(),
+  streaming: z.boolean(),
+  has_offer: z.boolean(),
+  has_answer: z.boolean(),
+  offer_sdp: z.string().nullable().optional(),
+  answer_sdp: z.string().nullable().optional(),
+  rtc_revision: z.number().int().nonnegative(),
+})
+
+export const sessionRtcIceSchema = z.object({
+  candidates: z.array(z.any()),
+})
+
+export const sessionRtcSignalInputSchema = z.object({
+  role: z.enum(['phone', 'desktop']),
+  kind: z.enum(['offer', 'answer', 'ice', 'hangup']),
+  sdp: z.string().optional().default(''),
+  candidate: z.any().nullable().optional(),
+})

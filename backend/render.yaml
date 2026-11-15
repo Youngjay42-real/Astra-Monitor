@@ -26,3 +26,6 @@ services:
         value: "42"
       - key: NASA_CACHE_TTL_SECONDS
         value: "900"
+      # Required for live DONKI SEP / space-weather pulls (https://api.nasa.gov)
+      - key: NASA_API_KEY
+        sync: false

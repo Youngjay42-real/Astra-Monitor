@@ -1,4 +1,8 @@
-"""NASA data clients with DB-backed cache for offline-capable demos."""
+"""NASA data clients with DB-backed cache for offline-capable demos.
+
+Space-weather SEP events come from the official Open NASA API gateway
+(https://api.nasa.gov/DONKI/SEP) authenticated with NASA_API_KEY.
+"""
 
 from __future__ import annotations
 
@@ -7,13 +11,14 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.models import NasaCache
 from app.schemas import EvidenceItem, EvidenceOut, RadiationEvent
 
-DONKI_SEP = "https://ccmc.gsfc.nasa.gov/DONKI-API/get/SEP"
+DONKI_SEP = "https://api.nasa.gov/DONKI/SEP"
 OSDR_SEARCH = "https://osdr.nasa.gov/osdr/data/search"
 NTRS_SEARCH = "https://ntrs.nasa.gov/api/citations/search"
 
@@ -59,7 +64,16 @@ def _cache_set(db: Session, key: str, payload: Any) -> None:
         row.fetched_at = datetime.utcnow()
     else:
         db.add(NasaCache(key=key, payload=raw, fetched_at=datetime.utcnow()))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Concurrent first-write race on the unique key — update the winner.
+        db.rollback()
+        row = db.query(NasaCache).filter(NasaCache.key == key).one_or_none()
+        if row:
+            row.payload = raw
+            row.fetched_at = datetime.utcnow()
+            db.commit()
 
 
 def _normalize_sep(raw: list[dict[str, Any]]) -> list[RadiationEvent]:
@@ -90,8 +104,14 @@ def fetch_sep_events(db: Session, *, force_refresh: bool = False) -> list[Radiat
             return _normalize_sep(cached)
 
     end = datetime.utcnow().date()
-    start = end - timedelta(days=59)
-    params = {"startDate": start.isoformat(), "endDate": end.isoformat()}
+    # api.nasa.gov DONKI rejects windows longer than 60 days (inclusive).
+    start = end - timedelta(days=30)
+    settings = get_settings()
+    params = {
+        "startDate": start.isoformat(),
+        "endDate": end.isoformat(),
+        "api_key": settings.resolved_nasa_api_key(),
+    }
     try:
         with httpx.Client(timeout=20.0) as client:
             resp = client.get(DONKI_SEP, params=params)

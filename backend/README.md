@@ -22,9 +22,11 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # set Neon DATABASE_URL
+cp .env.example .env   # set Neon DATABASE_URL + NASA_API_KEY + XAI_API_KEY
 uvicorn app.main:app --reload --port 8000
 ```
+
+Set `NASA_API_KEY` from [api.nasa.gov](https://api.nasa.gov/) so DONKI SEP space-weather pulls use your registered key (falls back to `DEMO_KEY` only if unset).
 
 Docs: http://localhost:8000/docs
 

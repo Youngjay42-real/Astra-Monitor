@@ -15,6 +15,9 @@ import {
   missionChatSchema,
   sessionFrameAckSchema,
   sessionFrameSchema,
+  sessionRtcIceSchema,
+  sessionRtcSignalInputSchema,
+  sessionRtcStateSchema,
   sessionStatusSchema,
   sessionSyncSchema,
   type MissionChatInput,
@@ -180,4 +183,23 @@ export const api = {
     }),
   sessionGetFrame: (sessionId: string, signal?: AbortSignal) =>
     request(`/api/session/${encodeURIComponent(sessionId)}/frame`, sessionFrameSchema, { signal }),
+  sessionRtcSignal: (
+    sessionId: string,
+    body: {
+      role: 'phone' | 'desktop'
+      kind: 'offer' | 'answer' | 'ice' | 'hangup'
+      sdp?: string
+      candidate?: RTCIceCandidateInit | null
+    },
+  ) =>
+    request(`/api/session/${encodeURIComponent(sessionId)}/rtc/signal`, sessionRtcStateSchema, {
+      method: 'POST',
+      body: sessionRtcSignalInputSchema.parse(body),
+    }),
+  sessionRtcState: (sessionId: string, signal?: AbortSignal) =>
+    request(`/api/session/${encodeURIComponent(sessionId)}/rtc/state`, sessionRtcStateSchema, { signal }),
+  sessionRtcTakeIce: (sessionId: string, role: 'phone' | 'desktop') =>
+    request(`/api/session/${encodeURIComponent(sessionId)}/rtc/ice/${role}`, sessionRtcIceSchema, {
+      method: 'POST',
+    }),
 }

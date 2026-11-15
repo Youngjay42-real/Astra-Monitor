@@ -27,6 +27,9 @@ from app.schemas import (
     SessionFrameAck,
     SessionFrameIn,
     SessionFrameOut,
+    SessionRtcIceOut,
+    SessionRtcSignalIn,
+    SessionRtcStateOut,
     SessionRegister,
     SessionStatus,
     SessionSyncOut,
@@ -117,6 +120,35 @@ def session_get_frame(session_id: str) -> SessionFrameOut:
     if not data:
         raise HTTPException(status_code=404, detail="No live frame.")
     return SessionFrameOut.model_validate(data)
+
+
+@router.post("/session/{session_id}/rtc/signal", response_model=SessionRtcStateOut)
+def session_rtc_signal(session_id: str, body: SessionRtcSignalIn) -> SessionRtcStateOut:
+    try:
+        data = session_hub.rtc_signal(
+            session_id,
+            role=body.role,
+            kind=body.kind,
+            sdp=body.sdp,
+            candidate=body.candidate,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SessionRtcStateOut.model_validate(data)
+
+
+@router.get("/session/{session_id}/rtc/state", response_model=SessionRtcStateOut)
+def session_rtc_state(session_id: str) -> SessionRtcStateOut:
+    return SessionRtcStateOut.model_validate(session_hub.rtc_state(session_id))
+
+
+@router.post("/session/{session_id}/rtc/ice/{role}", response_model=SessionRtcIceOut)
+def session_rtc_take_ice(session_id: str, role: str) -> SessionRtcIceOut:
+    try:
+        cands = session_hub.rtc_take_ice(session_id, role)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SessionRtcIceOut(candidates=cands)
 
 
 @router.get("/status", response_model=FeStatusOut)

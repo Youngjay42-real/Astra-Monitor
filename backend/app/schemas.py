@@ -365,6 +365,8 @@ class SessionSyncOut(BaseModel):
     frame_revision: int = 0
     frame_live: bool = False
     frame_at: str | None = None
+    rtc_streaming: bool = False
+    rtc_revision: int = 0
     turns: list[MissionChatTurn] = Field(default_factory=list)
     events: list[dict] = Field(default_factory=list)
 
@@ -387,3 +389,24 @@ class SessionFrameAck(BaseModel):
     ok: bool = True
     frame_revision: int = 0
     live: bool = True
+
+
+class SessionRtcSignalIn(BaseModel):
+    role: Literal["phone", "desktop"]
+    kind: Literal["offer", "answer", "ice", "hangup"]
+    sdp: str = Field(default="", max_length=200_000)
+    candidate: dict | None = None
+
+
+class SessionRtcStateOut(BaseModel):
+    session_id: str
+    streaming: bool = False
+    has_offer: bool = False
+    has_answer: bool = False
+    offer_sdp: str | None = None
+    answer_sdp: str | None = None
+    rtc_revision: int = 0
+
+
+class SessionRtcIceOut(BaseModel):
+    candidates: list[dict] = Field(default_factory=list)
