@@ -9,21 +9,33 @@ import {
   evidenceSchema,
   inventoryItemSchema,
   inventorySchema,
+  observeScanInputSchema,
+  observeScanSchema,
+  missionChatInputSchema,
+  missionChatSchema,
+  sessionStatusSchema,
+  type MissionChatInput,
   predictionsSchema,
   protocolSchema,
   statusSchema,
   type AssessInput,
   type CheckinInput,
   type InventoryItem,
+  type ObserveScanInput,
 } from './schemas'
 
 /** Test-only override. Production/Render always uses the backend API (default false). */
 export const isMock = import.meta.env.VITE_USE_MOCK === 'true'
-// Empty string = same-origin (API + UI on one Render service). Local default is localhost.
+// Empty string = same-origin (API + UI on one Render service).
+// Local Vite preview/dev always talk to the FastAPI process on :8000.
 const configuredBase = import.meta.env.VITE_API_BASE_URL
+const localHost =
+  typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)
 const baseUrl = (
   configuredBase === undefined || configuredBase === ''
-    ? (import.meta.env.DEV ? 'http://localhost:8000' : '')
+    ? import.meta.env.DEV || localHost
+      ? 'http://127.0.0.1:8000'
+      : ''
     : configuredBase
 ).replace(/\/+$/, '')
 
@@ -60,7 +72,9 @@ export async function request<T>(path: string, schema: z.ZodType<T>, options: Re
     if (!['http:', 'https:'].includes(url.protocol)) {
       throw new ApiError('The API URL must use HTTP or HTTPS.')
     }
-    const timeout = AbortSignal.timeout(12000)
+    const timeoutMs =
+      path.includes('/observe/') || path.includes('/mission-chat') ? 60000 : 12000
+    const timeout = AbortSignal.timeout(timeoutMs)
     const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout
     try {
       const response = await fetch(`${absoluteBase}${path}`, {
@@ -73,10 +87,18 @@ export async function request<T>(path: string, schema: z.ZodType<T>, options: Re
         ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
       })
       if (!response.ok) {
+        let detail = ''
+        try {
+          const errBody = (await response.json()) as { detail?: string }
+          detail = typeof errBody.detail === 'string' ? errBody.detail : ''
+        } catch {
+          /* ignore */
+        }
         throw new ApiError(
-          response.status === 422
-            ? 'The API rejected these values. Check your entries and try again.'
-            : `The API request failed (${response.status}). Please try again.`,
+          detail ||
+            (response.status === 422
+              ? 'The API rejected these values. Check your entries and try again.'
+              : `The API request failed (${response.status}). Please try again.`),
           response.status,
         )
       }
@@ -115,4 +137,21 @@ export const api = {
   saveInventory: (body: InventoryItem) =>
     request('/api/inventory', inventoryItemSchema, { method: 'POST', body: inventoryItemSchema.parse(body) }),
   predictions: (signal?: AbortSignal) => request('/api/predictions', predictionsSchema, { signal }),
+  observeScan: (body: ObserveScanInput) =>
+    request('/api/observe/scan', observeScanSchema, {
+      method: 'POST',
+      body: observeScanInputSchema.parse(body),
+    }),
+  missionChat: (body: MissionChatInput) =>
+    request('/api/mission-chat', missionChatSchema, {
+      method: 'POST',
+      body: missionChatInputSchema.parse(body),
+    }),
+  registerSession: (sessionId: string, body: { device: 'phone' | 'desktop'; mission?: string }) =>
+    request(`/api/session/${encodeURIComponent(sessionId)}/register`, sessionStatusSchema, {
+      method: 'POST',
+      body,
+    }),
+  sessionStatus: (sessionId: string, signal?: AbortSignal) =>
+    request(`/api/session/${encodeURIComponent(sessionId)}`, sessionStatusSchema, { signal }),
 }

@@ -1,3 +1,6 @@
+import base64
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -16,11 +19,28 @@ from app.schemas import (
     FePrediction,
     FeProtocolOut,
     FeStatusOut,
+    MissionChatOut,
+    MissionChatRequest,
+    SessionRegister,
+    SessionStatus,
+    ObserveScanOut,
+    ObserveScanRequest,
     RadiationEvent,
     SimulationStartRequest,
     SimulationState,
 )
-from app.services import fe_format, nasa, nasa_baseline, nlsp, predictor, protocols, simulation
+from app.services import (
+    fe_format,
+    gemini_mission_chat,
+    gemini_observe,
+    nasa,
+    nasa_baseline,
+    nlsp,
+    predictor,
+    protocols,
+    session_hub,
+    simulation,
+)
 from app.services.risk_engine import compute_status
 
 router = APIRouter(prefix="/api")
@@ -29,6 +49,20 @@ router = APIRouter(prefix="/api")
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "astra-med"}
+
+
+@router.post("/session/{session_id}/register", response_model=SessionStatus)
+def session_register(session_id: str, body: SessionRegister) -> SessionStatus:
+    try:
+        data = session_hub.register(session_id, body.device, body.mission)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SessionStatus.model_validate(data)
+
+
+@router.get("/session/{session_id}", response_model=SessionStatus)
+def session_status(session_id: str) -> SessionStatus:
+    return SessionStatus.model_validate(session_hub.snapshot(session_id))
 
 
 @router.get("/status", response_model=FeStatusOut)
@@ -77,6 +111,77 @@ def evidence(db: Session = Depends(get_db)) -> list[FeEvidenceItem]:
 def nlsp_catalog(db: Session = Depends(get_db)) -> dict:
     """NASA Life Sciences Portal catalog: Standard Measures, open bedrest, ALSDA, access notes."""
     return nlsp.get_nlsp_catalog(db)
+
+
+@router.post("/observe/scan", response_model=ObserveScanOut)
+def observe_scan(body: ObserveScanRequest) -> ObserveScanOut:
+    frames: list[tuple[bytes, str]] = []
+    for frame in body.frames:
+        try:
+            raw = base64.b64decode(frame.data_base64, validate=False)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="Invalid frame encoding.") from exc
+        if len(raw) < 32:
+            raise HTTPException(status_code=400, detail="Frame too small.")
+        frames.append((raw, frame.mime_type or "image/jpeg"))
+    try:
+        result = gemini_observe.analyze_frames(frames, mode=body.mode)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ObserveScanOut.model_validate(result)
+
+
+def _inventory_payload(rows: list[InventoryItem]) -> list[dict]:
+    out: list[dict] = []
+    for row in rows:
+        low = row.quantity <= 2
+        expired = bool(row.expires_on and row.expires_on < date.today())
+        out.append(
+            {
+                "sku": row.sku,
+                "name": row.name,
+                "quantity": row.quantity,
+                "unit": row.unit,
+                "expires_on": row.expires_on.isoformat() if row.expires_on else None,
+                "notes": row.notes,
+                "low_stock": low,
+                "expired": expired,
+            }
+        )
+    return out
+
+
+@router.post("/mission-chat", response_model=MissionChatOut)
+def mission_chat(body: MissionChatRequest, db: Session = Depends(get_db)) -> MissionChatOut:
+    rows = db.query(InventoryItem).order_by(InventoryItem.sku.asc()).all()
+    history = [
+        {"role": "model" if turn.role == "assistant" else "user", "content": turn.content}
+        for turn in body.history
+    ]
+    try:
+        result = gemini_mission_chat.mission_chat(body.message, history, _inventory_payload(rows))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    for upd in result.get("inventory_updates") or []:
+        sku = str(upd.get("sku", "")).strip().upper()
+        qty = int(upd.get("quantity", 0))
+        row = db.query(InventoryItem).filter(InventoryItem.sku == sku).one_or_none()
+        if row and qty >= 0:
+            row.quantity = qty
+    db.commit()
+    rows = db.query(InventoryItem).order_by(InventoryItem.sku.asc()).all()
+    updates = result.get("inventory_updates") or []
+    return MissionChatOut(
+        reply=result["reply"],
+        model=result["model"],
+        inventory_updates=updates,
+        inventory=[fe_format.format_inventory(r) for r in rows],
+    )
 
 
 @router.post("/assess", response_model=FeAssessOut)

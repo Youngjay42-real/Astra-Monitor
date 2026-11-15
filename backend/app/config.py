@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     nasa_cache_ttl_seconds: int = 900
     crew_name: str = "Sim Crew A"
     mission_day: int = 42
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.5-flash"
 
     @property
     def cors_origin_list(self) -> list[str]:

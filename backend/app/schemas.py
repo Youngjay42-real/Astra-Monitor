@@ -267,3 +267,72 @@ class SimulationState(BaseModel):
     sep_days: list[int]
     days: list[SimulationDay]
     compare: SimulationCompare | None = None
+
+
+class ObserveFrame(BaseModel):
+    mime_type: str = Field(default="image/jpeg", max_length=64)
+    data_base64: str = Field(min_length=8, max_length=8_000_000)
+
+
+class ObserveScanRequest(BaseModel):
+    frames: list[ObserveFrame] = Field(min_length=1, max_length=3)
+    mode: Literal["assess", "sleep"] = "assess"
+
+
+class ObserveDomainAttention(BaseModel):
+    radiation: int = Field(ge=0, le=100)
+    bone: int = Field(ge=0, le=100)
+    cardio: int = Field(ge=0, le=100)
+    immune: int = Field(ge=0, le=100)
+    behavioral: int = Field(ge=0, le=100)
+
+
+class ObserveScanOut(BaseModel):
+    mode: Literal["assess", "sleep"] = "assess"
+    condition: str
+    wellness_score: int = Field(ge=0, le=100)
+    height_cm: float | None = None
+    temperature_c: float | None = None
+    temperature_note: str = ""
+    sleep_note: str = ""
+    observations: list[str]
+    domain_attention: ObserveDomainAttention
+    disclaimer: str
+    model: str
+
+
+class MissionChatTurn(BaseModel):
+    role: Literal["user", "assistant"] = "user"
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class MissionChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[MissionChatTurn] = Field(default_factory=list, max_length=20)
+
+
+class MissionInventoryUpdate(BaseModel):
+    sku: str
+    quantity: int = Field(ge=0)
+
+
+class MissionChatOut(BaseModel):
+    reply: str
+    model: str
+    inventory_updates: list[MissionInventoryUpdate] = Field(default_factory=list)
+    inventory: list[FeInventoryOut] = Field(default_factory=list)
+
+
+class SessionRegister(BaseModel):
+    device: Literal["phone", "desktop"]
+    mission: str = Field(default="", max_length=64)
+
+
+class SessionStatus(BaseModel):
+    session_id: str
+    found: bool = False
+    phone_connected: bool = False
+    desktop_connected: bool = False
+    mission: str = ""
+    phone_at: str | None = None
+    desktop_at: str | None = None

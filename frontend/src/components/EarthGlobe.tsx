@@ -212,7 +212,7 @@ export default function EarthGlobe() {
 
   return <div className="earth-experience">
     <div className="earth-canvas" ref={host} data-state={phase} />
-    {phase !== 'ready' && <div className={`earth-poster ${phase === 'loading' ? 'is-loading' : ''}`} role="status"><img src="/textures/earth-fallback.jpg" alt="Earth in NASA's Blue Marble composite" /><span>{phase === 'loading' ? 'Preparing your view of Earth…' : 'NASA Blue Marble · 3D view unavailable on this device'}</span></div>}
+    {phase !== 'ready' && <div className={`earth-poster ${phase === 'loading' ? 'is-loading' : ''}`} role="status"><img src="/textures/earth-fallback.jpg" alt="" /><span className="visually-hidden">{phase === 'loading' ? 'Loading globe' : 'Globe unavailable on this device'}</span></div>}
     <div className="earth-controls"><span className="planet-caption">EARTH / OUR HOME PLANET</span><div className="control-buttons" aria-label="Earth controls">
       <button type="button" className="icon-button" aria-label={paused ? 'Resume rotation' : 'Pause rotation'} aria-pressed={paused} disabled={phase !== 'ready'} onClick={() => setPaused(!paused)}>{paused ? <Play /> : <Pause />}</button>
       <button type="button" className="icon-button" aria-label="Zoom in" disabled={phase !== 'ready'} onClick={() => actions.current?.zoom(0.88)}><Plus /></button>

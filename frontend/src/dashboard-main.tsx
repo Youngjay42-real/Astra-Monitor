@@ -4,6 +4,7 @@ import Dashboard from './Dashboard'
 import { syncMissionFromUrl } from './lib/mission'
 import { registerServiceWorker } from './lib/registerSw'
 import './index.css'
+import './styles/dashboard.css'
 
 syncMissionFromUrl()
 registerServiceWorker()

@@ -71,3 +71,79 @@ export type InventoryItem = z.infer<typeof inventoryItemSchema>
 export type Evidence = z.infer<typeof evidenceSchema>[number]
 export type RadiationEvent = z.infer<typeof eventsSchema>[number]
 export type Prediction = z.infer<typeof predictionsSchema>[number]
+
+export const observeScanInputSchema = z.object({
+  frames: z
+    .array(
+      z.object({
+        mime_type: z.string().max(64).default('image/jpeg'),
+        data_base64: z.string().min(8).max(8_000_000),
+      }),
+    )
+    .min(1)
+    .max(3),
+  mode: z.enum(['assess', 'sleep']).default('assess'),
+})
+
+export const observeScanSchema = z.object({
+  mode: z.enum(['assess', 'sleep']),
+  condition: z.string().max(160),
+  wellness_score: z.number().min(0).max(100),
+  height_cm: z.number().nullable(),
+  temperature_c: z.number().nullable(),
+  temperature_note: z.string().max(240),
+  sleep_note: z.string().max(240),
+  observations: z.array(z.string().max(200)).max(4),
+  domain_attention: z.object({
+    radiation: scoreSchema,
+    bone: scoreSchema,
+    cardio: scoreSchema,
+    immune: scoreSchema,
+    behavioral: scoreSchema,
+  }),
+  disclaimer: z.string().max(300),
+  model: z.string().max(100),
+})
+
+export type ObserveScanInput = z.infer<typeof observeScanInputSchema>
+export type ObserveScan = z.infer<typeof observeScanSchema>
+
+const chatRoleSchema = z.enum(['user', 'assistant'])
+
+export const missionChatTurnSchema = z.object({
+  role: chatRoleSchema,
+  content: z.string().min(1).max(4000),
+})
+
+export const missionChatInputSchema = z.object({
+  message: z.string().min(1).max(2000),
+  history: z.array(missionChatTurnSchema).max(20).default([]),
+})
+
+export const missionChatSchema = z.object({
+  reply: z.string(),
+  model: z.string(),
+  inventory_updates: z.array(
+    z.object({
+      sku: z.string(),
+      quantity: z.number().int().min(0),
+    }),
+  ),
+  inventory: inventorySchema,
+})
+
+export type MissionChatTurn = z.infer<typeof missionChatTurnSchema>
+export type MissionChatInput = z.infer<typeof missionChatInputSchema>
+export type MissionChat = z.infer<typeof missionChatSchema>
+
+export const sessionStatusSchema = z.object({
+  session_id: z.string(),
+  found: z.boolean(),
+  phone_connected: z.boolean(),
+  desktop_connected: z.boolean(),
+  mission: z.string(),
+  phone_at: z.string().nullable().optional(),
+  desktop_at: z.string().nullable().optional(),
+})
+
+export type SessionStatus = z.infer<typeof sessionStatusSchema>
