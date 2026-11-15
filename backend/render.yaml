@@ -11,6 +11,18 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: CORS_ORIGINS
+        # Prefer your exact frontend origin(s). "*" works for demos.
         value: "*"
       - key: PYTHON_VERSION
         value: "3.12.8"
+      # Required for camera observe / sleep-watch (POST /api/observe/scan)
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: "gemini-3.8-flash"
+      - key: CREW_NAME
+        value: "Sim Crew A"
+      - key: MISSION_DAY
+        value: "42"
+      - key: NASA_CACHE_TTL_SECONDS
+        value: "900"

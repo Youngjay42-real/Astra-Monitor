@@ -7,12 +7,10 @@ import json
 import re
 from typing import Any, Literal
 
-import httpx
-
 from app.config import get_settings
+from app.services.gemini_client import DEFAULT_MODEL, generate_content
 from app.services.nasa_hrp_context import build_observe_brief
 
-DEFAULT_MODEL = "gemini-3.5-flash"
 Mode = Literal["assess", "sleep"]
 
 
@@ -87,12 +85,7 @@ def analyze_frames(frames: list[tuple[bytes, str]], mode: Mode = "assess") -> di
         "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {"temperature": 0.25, "responseMimeType": "application/json"},
     }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-    with httpx.Client(timeout=45.0) as client:
-        response = client.post(url, json=payload)
-        if response.status_code >= 400:
-            raise RuntimeError(f"Gemini failed ({response.status_code}): {response.text[:300]}")
-        body = response.json()
+    body, model = generate_content(api_key, model, payload, timeout=45.0)
 
     try:
         text = body["candidates"][0]["content"]["parts"][0]["text"]

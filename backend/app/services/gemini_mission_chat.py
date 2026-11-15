@@ -8,7 +8,8 @@ from typing import Any
 import httpx
 
 from app.config import get_settings
-from app.services.gemini_observe import DEFAULT_MODEL, _parse_json
+from app.services.gemini_client import DEFAULT_MODEL, generate_content
+from app.services.gemini_observe import _parse_json
 
 SYSTEM = """You are ASTRA-MED's mission assistant (exploration demo, not clinical diagnosis).
 
@@ -63,12 +64,7 @@ def mission_chat(
         "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {"temperature": 0.35, "responseMimeType": "application/json"},
     }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-    with httpx.Client(timeout=60.0) as client:
-        response = client.post(url, json=payload)
-        if response.status_code >= 400:
-            raise RuntimeError(f"Gemini failed ({response.status_code}): {response.text[:300]}")
-        body = response.json()
+    body, model = generate_content(api_key, model, payload, timeout=60.0)
 
     try:
         text = body["candidates"][0]["content"]["parts"][0]["text"]
